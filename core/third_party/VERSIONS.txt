@@ -1,0 +1,2 @@
+stb pinned 2c980bb59875b0d32144a71867fbdebb2f77cd20
+cJSON v1.7.18

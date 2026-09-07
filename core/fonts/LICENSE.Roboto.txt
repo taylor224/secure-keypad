@@ -1,0 +1,4 @@
+Roboto (Roboto-Regular.ttf, v3.016, android/static build)
+Copyright 2011 The Roboto Project Authors (https://github.com/googlefonts/roboto-3-classic)
+
+Licensed under the Apache License, Version 2.0. See ../../LICENSE for the license text.

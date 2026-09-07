@@ -1,0 +1,93 @@
+{
+ "name": "number-material-412x2.625-blank-random",
+ "master_key": "0f1e2d3c4b5a69788796a5b4c3d2e1f0f0e1d2c3b4a5968778695a4b3c2d1e0f",
+ "expect_master": {
+  "kid": "d7458099",
+  "pk_sign": "5e9dbb47ce12257cb46d741da7161f80d30827588703ef22aa37ebe486c31c11",
+  "k_state": "29b7ea05c6bdfde9d30b163be236c702b99a44257adf4e6b9f11b60ac998db58"
+ },
+ "client_sk": "2626262626262626262626262626262626262626262626262626262626262626",
+ "request": {
+  "v": 1,
+  "type": "number",
+  "viewport": {
+   "w": 412,
+   "dpr": 2.625,
+   "platform": "web"
+  },
+  "opts": {
+   "maxLen": 6
+  },
+  "kp": "kguGfLlHEhW3VCEGdRflqb1Gd+HhzhOkw7fULTOGuGQ="
+ },
+ "server_opts": {
+  "layout": "shuffle",
+  "blank": "random"
+ },
+ "hooks": {
+  "s_sk": "0606060606060606060606060606060606060606060606060606060606060606",
+  "sid": "065d065d065d065d065d065d065d065d",
+  "seed": "7706770677067706770677067706770677067706770677067706770677067706",
+  "nonce24": "f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9",
+  "now": 1757000000
+ },
+ "expect_session": {
+  "response": {
+   "v": 1,
+   "sid": "Bl0GXQZdBl0GXQZdBl0GXQ",
+   "kid": "d7458099",
+   "sp": "9bLW5g+Ud+MQwpgtqqbJE2wQihd3xZR+RI+jfWgXRVc=",
+   "sig": "ypCZtEc5020HrfJLaGYBMJnX3+3HOyiBFChUUrNOA65M6ZXU/SQvwDXqiE+e/70c9HEC6Ae1+mZSgYaGIWbGDg==",
+   "ct": "b2XkR2kAB0biZJRbxOq6+pZ8CGWLkUdOQ6fE9zN0hFeVUTlYDqz9R0b4K3pIz0SUhAngHPiuu4uVxiqzaxYp9gN4ER36Kt8siyc0JUMrwbl09CxKkKRYvtF9xw8xd6zEboqfx2gBigE6vIm0PhEcVARXnqCgCJWBj0YkmqHyZ/YIv2HgL9X/4l5LjYpf3eaqYWGmr9FSVaJVCV/QTwpfD6jdQqRtrr3QMtmdDgk6iwkUv4mvRs34AEfU/jPcPn02SVuP3jJpGOwGfSgYeeUpnFdAEFY/w0nYepsveHJgEuZgjCqBpuJFcj+6wHGfw8BpVE6kAR6zsauJ8wSifhWbluGNrk2sVSJ4rBHcLTep62Ca4clxHkkvrRb39mlqJ6HrIwdv9AJpc8OHOp9VZeUZrs+CKpp+OBwSTmt8gowPjFoXz1SqNY2/6itRrWegvyc5zSh79RZgIV+Dlb8FV4/NK6Q6FFbwNeMcR5bpFCH6BLzmgUeBEGLvRkyklrizRMKVtDmhF2APvErH42YkVf0KIRWEtyGota8bIvH/r66T4HxrJuV2ZiFw7kmU7bSdVdmoItBC/exYIzWGBmxmHtgMWfwwXY3Ilf/Rg2M8jXLkUaCSSF5r63LWz6+x6gy/Qgd1lkTkBru0fAFu7rsdnw5cy6mh9hocNxQsEWhO1jHICT05AQ/gP9STUlNuEu8jhrzOiIVpgJaInQO+oYRUfabEFKdJx1eGflcbnwyt+CYZ9bxsShFLzyXvsCx1zQcwwocy0xhUTGplhse9kd2ow/1mhjLJ4owQrL9j5vQok85Mlwa2sjoUJQ1yfXs+vbkuytq4vUcj+wLRcAWfZgPJmIOSIktR981gCeWVyal1UBfvuPo5yXH3bFQkAQnEXJyBqvsK9TNHVRCAs2WpQwl6QQQI7fAC7KQMXmx/BVSIgHfRRjHnpi0WdmgREZGZeNhMKyAklrpe2oQ9V0UdwJRc32HHRWCZDG/LOFHSQ1FCaarxYGS3fAezPUxE8nNkjIbByX8tZpo="
+  },
+  "k_s2c": "bafa7909fe533f89ae5440a0b0f588b8914f90b6f1849a1072cf05ee4342ff50",
+  "k_c2s": "f16d9c313f94d572b26a85eb665b8f87a00301fe3eecbafc27071975e74fd9a1",
+  "inner_json": "{\"v\":1,\"type\":\"number\",\"style\":\"material\",\"w\":1082,\"h\":562,\"gen\":0,\"maxLen\":6,\"exp\":180,\"layouts\":[{\"id\":4,\"mode\":\"number\",\"keys\":[{\"r\":[11,16,346,116],\"role\":\"char\",\"t\":0},{\"r\":[368,16,346,116],\"role\":\"char\",\"t\":1},{\"r\":[725,16,346,116],\"role\":\"char\",\"t\":2},{\"r\":[11,153,346,116],\"role\":\"char\",\"t\":3},{\"r\":[368,153,346,116],\"role\":\"char\",\"t\":4},{\"r\":[725,153,346,116],\"role\":\"char\",\"t\":5},{\"r\":[11,290,346,116],\"role\":\"char\",\"t\":6},{\"r\":[368,290,346,116],\"role\":\"blank\"},{\"r\":[725,290,346,116],\"role\":\"char\",\"t\":7},{\"r\":[11,427,346,116],\"role\":\"char\",\"t\":8},{\"r\":[368,427,346,116],\"role\":\"char\",\"t\":9},{\"r\":[725,427,346,116],\"role\":\"backspace\"}]}],\"tile\":{\"w\":346,\"h\":116,\"cols\":10,\"count\":10},\"popup\":{\"w\":174,\"h\":162,\"cols\":10,\"count\":10}}",
+  "sealed": "f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f911f91f19b52c5bcaa9c6be95c7135400b7c0a599a8f525ec01514067e1c71bb90bb630eeba9fe815945c73a78560afab65576fcb1ef2f26a900e18ff4d834f2ad68a11f3e14a5fcc2b88849847c3741d179a735dba3e9d47e9ba3ed7566ca7f765d349b979d1f62d5245e0793abaddd3b53fa24eadf08db13ba64dee918d91aa803cf478fbfcf283b5d1eb909c999b90778bc2e6baf89f8db7c1a38accab581d63382bca62bddc5cc4fa1d51aa118e57c0693f188156c175bec013b91e85634cd06929a4909465",
+  "mapping": {
+   "number": "6192043_857\\b"
+  }
+ },
+ "input": {
+  "text": "000123",
+  "taps": [
+   [
+    4,
+    541,
+    211
+   ],
+   [
+    4,
+    541,
+    211
+   ],
+   [
+    4,
+    541,
+    211
+   ],
+   [
+    4,
+    541,
+    74
+   ],
+   [
+    4,
+    184,
+    211
+   ],
+   [
+    4,
+    184,
+    348
+   ]
+  ],
+  "payload": {
+   "v": 1,
+   "sid": "Bl0GXQZdBl0GXQZdBl0GXQ",
+   "ct": "7R9yNRTX5wnTXS1h5dEDgM/qWaWA+YRX237uM29nBLdYBvl4nYSajsbTsSRvmkSFhb0tYVGvHduJyg8n//d7xeAiEWA="
+  },
+  "decrypt_now": 1757000060,
+  "expect_plain": "000123"
+ }
+}
