@@ -1,0 +1,49 @@
+{
+  "name": "@secure-keypad/server",
+  "version": "0.1.0",
+  "description": "Server SDK for secure-keypad: creates shuffled keypad sessions and decrypts tap coordinates (native libskp binding)",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "scripts",
+    "binding.gyp",
+    "prebuilds",
+    "README.md"
+  ],
+  "scripts": {
+    "install": "node-gyp-build",
+    "build:native": "node-gyp rebuild",
+    "build:native:test": "node-gyp rebuild -- -Dskp_testing=1",
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --shims",
+    "test": "vitest run",
+    "prebuild": "prebuildify --napi --strip"
+  },
+  "gypfile": true,
+  "dependencies": {
+    "node-addon-api": "^8.9.2",
+    "node-gyp-build": "^4.8.4"
+  },
+  "devDependencies": {
+    "@secure-keypad/web": "0.1.0",
+    "@types/node": "^26.4.1",
+    "node-gyp": "^13.0.2",
+    "prebuildify": "^6.0.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

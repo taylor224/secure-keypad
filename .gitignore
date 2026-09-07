@@ -27,3 +27,15 @@ local.properties
 !spec/vectors/*.json
 .cache/
 coverage/
+# swift / android
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata
+clients/android/local.properties
+clients/android/**/build/
+bindings/java/**/build/
+examples/server-java/**/build/
+bindings/python/build/
+bindings/python/.venv/
+examples/server-node/test-results/
+examples/server-node/playwright-report/

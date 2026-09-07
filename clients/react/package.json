@@ -1,0 +1,38 @@
+{
+  "name": "@secure-keypad/react",
+  "version": "0.1.0",
+  "description": "React bindings for the secure-keypad web client",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.tsx --format esm,cjs --dts --clean --external react",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@secure-keypad/web": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "react": "^19.2.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "sideEffects": false
+}

@@ -1,0 +1,20 @@
+{
+  "name": "secure-keypad-example-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Express example: keypad session/relayout routes, a login route, and the static web demo",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@secure-keypad/server": "0.1.0",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

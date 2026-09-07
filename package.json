@@ -1,0 +1,21 @@
+{
+  "name": "secure-keypad-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "secure-keypad: server-rendered, shuffled, end-to-end encrypted keypad (JS workspaces)",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "bindings/node",
+    "clients/web",
+    "clients/react",
+    "examples/server-node"
+  ],
+  "scripts": {
+    "build": "npm run build -w @secure-keypad/server -w @secure-keypad/web -w @secure-keypad/react",
+    "test": "npm test -w @secure-keypad/server -w @secure-keypad/web --if-present",
+    "e2e": "npm run e2e -w secure-keypad-example-server"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

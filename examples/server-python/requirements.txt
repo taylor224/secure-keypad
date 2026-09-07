@@ -1,0 +1,4 @@
+fastapi>=0.110
+uvicorn>=0.27
+# the server SDK from this repository (build requires cmake >= 3.20, a C compiler, libsodium, zlib):
+-e ../../bindings/python

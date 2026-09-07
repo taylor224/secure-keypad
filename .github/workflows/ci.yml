@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    name: C core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libsodium + cmake
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update && sudo apt-get install -y libsodium-dev cmake ninja-build zlib1g-dev; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then brew install libsodium cmake ninja; fi
+      - name: Configure (sanitizers on Linux)
+        run: cmake -S core -B core/build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DSKP_SANITIZE=${{ runner.os == 'Linux' && 'ON' || 'OFF' }}
+      - run: cmake --build core/build
+      - name: Tests (vectors, API, render, memory residue)
+        run: cd core/build && ctest --output-on-failure
+
+  reference:
+    name: Python reference + vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pynacl pytest
+      - run: python -m pytest -q tools/reference/test_ref.py
+      - name: Vectors are up to date
+        run: python tools/reference/gen_vectors.py && git diff --exit-code spec/vectors
+
+  node-web:
+    name: Node binding + web/react clients + E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install -y libsodium-dev zlib1g-dev
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run e2e
+
+  python-binding:
+    name: Python binding
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get update && sudo apt-get install -y libsodium-dev cmake ninja-build zlib1g-dev
+      - run: pip install pynacl pytest cffi setuptools wheel
+      - run: cd bindings/python && pip install -e . --no-build-isolation && python -m pytest -q tests
+
+  java-binding:
+    name: Java binding
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: sudo apt-get update && sudo apt-get install -y libsodium-dev cmake ninja-build zlib1g-dev
+      - run: cd bindings/java && ./gradlew build test --no-daemon
+
+  ios:
+    name: iOS SDK
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd clients/ios && swift test
+      - run: cd clients/ios && xcodebuild -scheme SecureKeypad -destination 'generic/platform=iOS Simulator' build
+
+  android:
+    name: Android SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: cd clients/android && ./gradlew :secure-keypad:assembleRelease :secure-keypad:testDebugUnitTest :demo:assembleDebug --no-daemon
