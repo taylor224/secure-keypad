@@ -1,6 +1,11 @@
 #ifndef SKP_INTERNAL_H
 #define SKP_INTERNAL_H
 
+/* feature macros must precede the first system header: glibc hides pthread_rwlock_* under strict C11 */
+#if !defined(_GNU_SOURCE) && !defined(_WIN32)
+#define _GNU_SOURCE 1
+#endif
+
 #include "skp.h"
 #include <sodium.h>
 #include <pthread.h>

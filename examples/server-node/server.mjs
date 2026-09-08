@@ -35,6 +35,8 @@ if (corsOrigins.length) {
       res.set("access-control-allow-headers", "content-type, x-login-ctx, x-keypad-layout");
       res.set("access-control-allow-methods", "GET, POST, OPTIONS");
       res.set("access-control-max-age", "600");
+      // Chrome's private-network-access preflight when a public site calls a local backend
+      if (req.get("access-control-request-private-network") === "true") res.set("access-control-allow-private-network", "true");
     }
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();

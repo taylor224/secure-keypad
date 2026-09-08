@@ -15,8 +15,11 @@ if (mode === "include") {
   const flags = pkg("--cflags-only-I");
   process.stdout.write(flags.split(/\s+/).filter(Boolean).map((f) => f.replace(/^-I/, "")).join(" "));
 } else {
+  // Static archive: explicit SKP_SODIUM_STATIC_LIB, or auto-detected on macOS only (Homebrew builds PIC
+  // archives; Linux distro archives are non-PIC and cannot be linked into the addon). Else shared.
+  const explicit = process.env.SKP_SODIUM_STATIC_LIB;
   const libdir = pkg("--variable=libdir");
-  const archive = libdir ? path.join(libdir, "libsodium.a") : "";
+  const archive = explicit || (process.platform === "darwin" && libdir ? path.join(libdir, "libsodium.a") : "");
   if (archive && fs.existsSync(archive)) process.stdout.write(archive);
   else process.stdout.write((pkg("--libs") || "-lsodium").trim());
 }

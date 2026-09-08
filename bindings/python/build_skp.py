@@ -93,14 +93,15 @@ def pkg_config(*args):
 
 
 def sodium_link():
-    """Prefer the static archive so the extension has no runtime dependency on libsodium."""
+    """Static archive when SKP_SODIUM_STATIC_LIB points at one, or on macOS where Homebrew builds a PIC
+    archive; elsewhere the shared libsodium (distro archives are non-PIC and cannot go into a .so)."""
     explicit = os.environ.get("SKP_SODIUM_STATIC_LIB")
     if explicit and os.path.exists(explicit):
         return [explicit], [], []
     libdir = pkg_config("--variable=libdir", "libsodium")
     if libdir:
-        for name in ("libsodium.a",):
-            path = os.path.join(libdir, name)
+        if sys.platform == "darwin":
+            path = os.path.join(libdir, "libsodium.a")
             if os.path.exists(path):
                 return [path], [], []
         return [], ["sodium"], [libdir]

@@ -29,7 +29,10 @@ if(SKP_USE_ZLIB)
     message(STATUS "zlib: not found, using stb's compressor")
   endif()
 endif()
-if(SKP_SODIUM_STATIC_LIB STREQUAL "")
+# Auto-detect the static archive only on macOS: Homebrew builds it with PIC. Distro archives on Linux are
+# usually non-PIC and cannot go into a shared library, so there the shared libsodium is linked unless a
+# PIC archive is passed explicitly (release builds compile libsodium with --with-pic and pass its path).
+if(SKP_SODIUM_STATIC_LIB STREQUAL "" AND APPLE)
   find_library(SKP_SODIUM_STATIC_FOUND NAMES libsodium.a PATHS ${SODIUM_LIBRARY_DIRS} NO_DEFAULT_PATH)
   if(SKP_SODIUM_STATIC_FOUND)
     set(SKP_SODIUM_STATIC_LIB ${SKP_SODIUM_STATIC_FOUND})
@@ -41,6 +44,7 @@ if(SKP_SODIUM_STATIC_LIB)
 else()
   message(STATUS "libsodium: shared (${SODIUM_LIBRARIES})")
   set(SKP_SODIUM_LINK ${SODIUM_LINK_LIBRARIES})
+  link_directories(${SODIUM_LIBRARY_DIRS})
 endif()
 
 # ---- embedded fonts ------------------------------------------------------------------------

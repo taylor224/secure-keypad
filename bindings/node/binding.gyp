@@ -34,7 +34,7 @@
         "NODE_ADDON_API_DISABLE_DEPRECATED",
         "SKP_HAVE_ZLIB=1"
       ],
-      "cflags_c": ["-std=c11", "-fvisibility=hidden"],
+      "cflags_c": ["-std=gnu11", "-fvisibility=hidden"],
       "cflags_cc": ["-std=c++17", "-fvisibility=hidden", "-fexceptions"],
       "cflags!": ["-fno-exceptions"],
       "cflags_cc!": ["-fno-exceptions"],
