@@ -40,3 +40,5 @@ body[data-theme="dark"] .iphone .home-indicator { background: #fff; }
 body[data-theme="dark"] .pixel .gesture-bar { background: #fff; }
 .pixel .power { right: -4px; top: 190px; width: 4px; height: 48px; }
 .pixel .vol { right: -4px; top: 260px; width: 4px; height: 90px; }
+.note-box:empty { display: none; }
+.note-box { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff3d1; color: #5a3d00; font-size: 12px; line-height: 1.5; }

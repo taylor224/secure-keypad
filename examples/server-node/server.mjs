@@ -99,6 +99,8 @@ app.post("/login", async (req, res) => {
 });
 
 app.use("/dist", express.static(path.join(here, "..", "..", "clients", "web", "dist")));
+app.use("/dist", express.static(path.join(here, "..", "..", "bindings", "wasm", "dist")));
+app.use("/dist", express.static(path.join(here, "..", "..", "bindings", "wasm", "src")));
 app.use(express.static(path.join(here, "..", "web-vanilla")));
 
 app.listen(port, () => console.log(`secure-keypad example on http://localhost:${port}  (kid ${skp.keyId})`));

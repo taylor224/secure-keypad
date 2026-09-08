@@ -13,6 +13,8 @@
   function load() {
     const u = new URL("app.html", location.href);
     if (window.SKP_API_BASE) u.searchParams.set("api", window.SKP_API_BASE);
+    if (qs.get("mode")) u.searchParams.set("mode", qs.get("mode"));
+    u.searchParams.set("embedded", "1");
     u.searchParams.set("device", device);
     u.searchParams.set("theme", theme.value);
     u.searchParams.set("layout", layout.value);
@@ -21,6 +23,7 @@
     frame.src = u.toString();
     document.body.dataset.theme = theme.value;
     result.innerHTML = "";
+    if (note) note.textContent = "";
     const url = new URL(location.href);
     url.searchParams.set("layout", layout.value);
     url.searchParams.set("theme", theme.value);
@@ -29,8 +32,11 @@
   layout.addEventListener("change", load);
   theme.addEventListener("change", load);
   document.getElementById("reload").addEventListener("click", load);
+  const note = document.getElementById("banner-note");
   window.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "skp-login") SkpDemo.renderResult(result, e.data.json);
+    if (!e.data) return;
+    if (e.data.type === "skp-login") SkpDemo.renderResult(result, e.data.json);
+    if (e.data.type === "skp-banner" && note) note.textContent = e.data.message;
   });
   function tick() {
     const d = new Date();

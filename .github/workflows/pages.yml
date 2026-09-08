@@ -10,6 +10,8 @@ on:
     paths:
       - "examples/web-vanilla/**"
       - "clients/web/**"
+      - "bindings/wasm/**"
+      - "core/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -33,6 +35,17 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Build the web client
         run: npm run build -w @secure-keypad/web
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+      - name: Cache libsodium (wasm)
+        uses: actions/cache@v4
+        with:
+          path: bindings/wasm/.cache/libsodium-1.0.21-wasm
+          key: libsodium-wasm-1.0.21-${{ runner.os }}-v1
+      - name: Build the WebAssembly server (in-page demo backend)
+        run: bash bindings/wasm/build.sh
       - name: Assemble the site
         env:
           SKP_API_BASE: ${{ vars.SKP_API_BASE }}
@@ -40,6 +53,7 @@ jobs:
           mkdir -p site/dist
           cp examples/web-vanilla/*.html examples/web-vanilla/*.css examples/web-vanilla/*.js site/
           cp clients/web/dist/secure-keypad.iife.js clients/web/dist/secure-keypad.iife.js.map site/dist/
+          cp bindings/wasm/dist/skp.js bindings/wasm/dist/skp.wasm bindings/wasm/src/skp-wasm-server.js site/dist/
           { echo "window.SKP_DEFAULT_API = \"${SKP_API_BASE}\";"; cat examples/web-vanilla/config.js; } > site/config.js
           touch site/.nojekyll
       - uses: actions/configure-pages@v5

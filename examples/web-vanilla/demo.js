@@ -6,6 +6,11 @@
   const api = (path) => base + path;
 
   function showBanner(message) {
+    // inside a device frame the host page shows the notice next to the phone instead of over the screen
+    if (qs.get("embedded") === "1" && window.parent !== window) {
+      window.parent.postMessage({ type: "skp-banner", message }, "*");
+      return;
+    }
     let el = document.getElementById("backend-banner");
     if (!el) {
       el = document.createElement("div");
@@ -17,19 +22,50 @@
     el.textContent = message;
   }
 
+  let fetchImpl = (...a) => fetch(...a);
+  let wasmServer = null;
+
+  /** Loads the WebAssembly build of the server SDK and serves the routes inside this page. */
+  async function startWasmServer() {
+    const load = (src) =>
+      new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error("cannot load " + src));
+        document.head.appendChild(s);
+      });
+    if (typeof SkpWasmServer === "undefined") await load("dist/skp-wasm-server.js");
+    const moduleUrl = new URL("dist/skp.js", location.href).toString();
+    wasmServer = await SkpWasmServer.create({ moduleUrl });
+    fetchImpl = wasmServer.makeFetch({ echo: true, allowClientLayout: true });
+    window.__skpWasm = wasmServer;
+    showBanner(
+      "브라우저 내장 서버(WebAssembly)로 동작 중 — 같은 C 코어가 이 페이지 안에서 세션을 만들고 복호화합니다. " +
+        "UI와 프로토콜 데모용입니다. 실제 서비스에서는 서버 SDK가 서버에서 실행되어야 브라우저가 입력값을 알 수 없습니다.",
+    );
+  }
+
   async function setup(o) {
     let publicKey, kid;
+    const wantWasm = qs.get("mode") === "wasm";
     try {
+      if (wantWasm) throw new Error("wasm mode requested");
       const res = await fetch(api("/keypad/public-key"));
       if (!res.ok) throw new Error("HTTP " + res.status);
       ({ publicKey, kid } = await res.json());
     } catch (e) {
-      showBanner(
-        "백엔드에 연결할 수 없습니다 (" + (base || location.origin) + ").\n" +
-          "이 페이지는 서버 SDK가 도는 백엔드가 필요합니다. 로컬에서 `cd examples/server-node && npm run demo` 를 실행한 뒤 " +
-          "이 주소 뒤에 ?api=http://localhost:3789 를 붙여 여세요. 호스팅한 백엔드가 있으면 그 주소를 ?api= 로 지정하면 기억됩니다.",
-      );
-      throw e;
+      try {
+        await startWasmServer();
+        ({ publicKey, kid } = await (await fetchImpl("/keypad/public-key")).json());
+      } catch (e2) {
+        showBanner(
+          "백엔드에 연결할 수 없고 내장 WebAssembly 서버도 불러오지 못했습니다 (" + (base || location.origin) + ").\n" +
+            "로컬에서 `cd examples/server-node && npm run demo` 를 실행한 뒤 이 주소 뒤에 ?api=http://localhost:3789 를 붙여 여세요. " +
+            "호스팅한 백엔드가 있으면 그 주소를 ?api= 로 지정하면 기억됩니다. (" + e2.message + ")",
+        );
+        throw e2;
+      }
     }
     const ctx = "demo-" + Math.random().toString(36).slice(2, 10);
     const getLayout = () => (typeof o.layout === "function" ? o.layout() : o.layout || qs.get("layout") || "shuffle");
@@ -39,6 +75,7 @@
       serverPublicKey: publicKey,
       headers: () => ({ "x-login-ctx": ctx, "x-keypad-layout": getLayout() }),
       credentials: "omit",
+      fetch: (...a) => fetchImpl(...a),
       style: o.style || qs.get("style") || "auto",
       theme: o.theme || qs.get("theme") || "auto",
       popups: o.popups ?? "auto",
@@ -62,7 +99,7 @@
       const body = {};
       if (pin.length) body.pin_enc = JSON.parse(pin.submit());
       if (password.length) body.password_enc = JSON.parse(password.submit());
-      const res = await fetch(api("/login"), {
+      const res = await fetchImpl(api("/login"), {
         method: "POST",
         headers: { "content-type": "application/json", "x-login-ctx": ctx },
         body: JSON.stringify(body),
@@ -73,7 +110,7 @@
       return json;
     }
 
-    return { pin, password, login, ctx, kid, layouts, reset: () => (pin.reset(), password.reset()) };
+    return { pin, password, login, ctx, kid, layouts, wasm: !!wasmServer, reset: () => (pin.reset(), password.reset()) };
   }
 
   /** Renders the /login result into a container: lengths always, values only when the server is in demo-echo mode. */

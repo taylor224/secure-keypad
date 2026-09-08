@@ -4,8 +4,9 @@ Open-source secure keypad: the server renders per-session shuffled keypads, the 
 keyboard and sends back only encrypted tap coordinates, and the server SDK turns them into the typed value.
 The client never knows what was typed; nothing secret survives the session.
 
-Playground: <https://taylor224.github.io/secure-keypad/> (static pages; point them at a running example server with
-`?api=…`, see [examples/server-node](examples/server-node/README.md)). Design plan: [docs/PLAN.md](docs/PLAN.md) (Korean). Specification: [spec/PROTOCOL.md](spec/PROTOCOL.md),
+Playground: <https://taylor224.github.io/secure-keypad/> — a normal web page plus iPhone and Pixel simulations. With
+no backend configured the page runs the server SDK's WebAssembly build in-browser (a demo of the mechanics, not of
+the security model); point it at a real example server with `?api=…` (see [examples/server-node](examples/server-node/README.md)). Design plan: [docs/PLAN.md](docs/PLAN.md) (Korean). Specification: [spec/PROTOCOL.md](spec/PROTOCOL.md),
 [spec/LAYOUT.md](spec/LAYOUT.md), [spec/THREAT-MODEL.md](spec/THREAT-MODEL.md).
 
 | Component | Path | Status |
@@ -19,7 +20,8 @@ Playground: <https://taylor224.github.io/secure-keypad/> (static pages; point th
 | iOS client | `clients/ios` | done: Swift Package (CryptoKit, `UIInputView`), simulator tests |
 | Android client | `clients/android` | done: AAR (BouncyCastle), demo app, JVM vector tests |
 | Reference implementation and vectors | `tools/reference`, `spec/vectors` | done: 7 vectors replayed by every implementation |
-| Examples | `examples/` | Express (+ web demo + Playwright E2E), FastAPI, JDK HttpServer |
+| WebAssembly server | `bindings/wasm` | done: Emscripten build of the core for the zero-backend playground / addon-less hosts |
+| Examples | `examples/` | Express (+ web playground + Playwright E2E), FastAPI, JDK HttpServer |
 
 ## Quick start
 

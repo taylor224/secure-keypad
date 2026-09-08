@@ -1,0 +1,21 @@
+{
+  "name": "@secure-keypad/server-wasm",
+  "version": "0.1.0",
+  "description": "secure-keypad server SDK compiled to WebAssembly (same libskp code) — for the zero-backend playground and platforms without a native addon",
+  "license": "Apache-2.0",
+  "main": "src/skp-wasm-server.js",
+  "files": [
+    "dist",
+    "src",
+    "build.sh",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bash build.sh",
+    "build:test": "SKP_WASM_TESTING=1 bash build.sh",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.0"
+  }
+}

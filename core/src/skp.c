@@ -1,19 +1,27 @@
 #include "skp_internal.h"
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 /* The signing key and the state key live in sodium_malloc'd pages that are no-access while idle.
- * Concurrent callers share the readable window through a counted guard. */
+ * Concurrent callers share the readable window through a counted guard. Platforms without page
+ * protection (WebAssembly) report ENOSYS; the keys then simply stay readable. */
 static pthread_mutex_t g_guard = PTHREAD_MUTEX_INITIALIZER;
 static int g_guard_count = 0;
 static const skp_ctx *g_guard_ctx = NULL;
+
+static int protect_readonly(void *p) {
+    if (sodium_mprotect_readonly(p) == 0)
+        return 0;
+    return errno == ENOSYS ? 0 : -1;
+}
 
 int skp_ctx_keys_acquire(const skp_ctx *ctx) {
     int rc = 0;
     pthread_mutex_lock(&g_guard);
     if (g_guard_count == 0 || g_guard_ctx == ctx) {
         if (g_guard_count == 0) {
-            if (sodium_mprotect_readonly(ctx->sk_sign) != 0 || sodium_mprotect_readonly(ctx->k_state) != 0)
+            if (protect_readonly(ctx->sk_sign) != 0 || protect_readonly(ctx->k_state) != 0)
                 rc = -1;
         }
         if (rc == 0) {
@@ -22,7 +30,7 @@ int skp_ctx_keys_acquire(const skp_ctx *ctx) {
         }
     } else {
         /* a different context is currently open: open ours too (pages are independent) */
-        if (sodium_mprotect_readonly(ctx->sk_sign) != 0 || sodium_mprotect_readonly(ctx->k_state) != 0)
+        if (protect_readonly(ctx->sk_sign) != 0 || protect_readonly(ctx->k_state) != 0)
             rc = -1;
         else
             g_guard_count++;

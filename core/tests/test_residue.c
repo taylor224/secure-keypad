@@ -65,7 +65,8 @@ static void scan_process(void) {
             depth++;
             continue;
         }
-        if ((info.protection & VM_PROT_READ) && !(info.protection & VM_PROT_EXECUTE) && info.share_mode != SM_EMPTY) {
+        if ((info.protection & VM_PROT_READ) && !(info.protection & VM_PROT_EXECUTE) && info.share_mode != SM_EMPTY &&
+            size <= (512ULL << 20)) {
             for (mach_vm_size_t off = 0; off < size; off += (1 << 20)) {
                 mach_vm_size_t want = size - off < (1 << 20) ? size - off : (1 << 20);
                 mach_vm_size_t got = 0;
@@ -93,6 +94,9 @@ static void scan_process(void) {
         if (sscanf(line, "%lx-%lx %7s", &lo, &hi, perms) != 3)
             continue;
         if (perms[0] != 'r' || perms[2] == 'x' || strstr(line, "[vvar]") || strstr(line, "[vsyscall]"))
+            continue;
+        /* sanitizer shadow / reserved ranges span terabytes of untouched address space: not heap */
+        if (hi - lo > (512UL << 20))
             continue;
         for (unsigned long off = lo; off < hi; off += (1 << 20)) {
             size_t want = hi - off < (1 << 20) ? hi - off : (1 << 20);

@@ -36,8 +36,14 @@ npm run e2e        # Playwright: iPhone WebKit, Pixel Chromium, desktop Chromium
 
 ## Hosting the playground on GitHub Pages
 
-GitHub Pages only serves static files, so the pages are published by `.github/workflows/pages.yml` and
-need a backend somewhere else (any host that runs Node with a C toolchain, or this image):
+GitHub Pages only serves static files. The published site (`.github/workflows/pages.yml`) therefore ships
+the **WebAssembly build of the server SDK** (`bindings/wasm`) and, when no backend is configured, runs the
+"server" inside the page: sessions, rendering and decryption all happen in the browser through the same C
+core. That makes the UI and protocol fully explorable with zero infrastructure — but it is a demo of the
+mechanics, not of the security model, and the page shows a banner saying so. Force it locally with
+`?mode=wasm` (after `bindings/wasm/build.sh`).
+
+For the real thing point the pages at a backend (any host that runs Node with a C toolchain, or this image):
 
 ```
 docker build -f examples/server-node/Dockerfile -t secure-keypad-example .

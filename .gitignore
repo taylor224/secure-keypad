@@ -39,3 +39,5 @@ bindings/python/build/
 bindings/python/.venv/
 examples/server-node/test-results/
 examples/server-node/playwright-report/
+bindings/wasm/.cache/
+bindings/wasm/dist/
