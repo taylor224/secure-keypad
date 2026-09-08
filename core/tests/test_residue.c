@@ -85,6 +85,9 @@ static void scan_process(void) {
         }
         addr += size;
     }
+    /* the scan buffer held copies of every mapping, live secrets included: never hand it back as is
+     * (sanitizer allocators quarantine freed chunks without zeroing, and a later scan would find them) */
+    sodium_memzero(buf, 1 << 20);
     free(buf);
 }
 #elif defined(__linux__)
@@ -118,6 +121,7 @@ static void scan_process(void) {
         }
         g_where = "?";
     }
+    sodium_memzero(buf, 1 << 20); /* see the macOS branch: freed scan buffers must not keep the copies */
     free(buf);
     fclose(maps);
     close(mem);
