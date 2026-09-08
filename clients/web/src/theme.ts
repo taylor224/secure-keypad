@@ -33,7 +33,7 @@ export const THEMES: Record<Style, Record<ThemeName, ThemeTokens>> = {
     light: {
       tray: "#d1d3d9",
       key: "#ffffff",
-      keyPressed: "#ffffff",
+      keyPressed: "#c9ccd3",
       keySpecial: "#adb3bc",
       keySpecialPressed: "#ffffff",
       keyText: "#000000",
@@ -52,7 +52,7 @@ export const THEMES: Record<Style, Record<ThemeName, ThemeTokens>> = {
     dark: {
       tray: "#2b2b2d",
       key: "#6b6b6e",
-      keyPressed: "#6b6b6e",
+      keyPressed: "#9a9a9e",
       keySpecial: "#464648",
       keySpecialPressed: "#6b6b6e",
       keyText: "#ffffff",

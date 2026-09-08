@@ -148,6 +148,10 @@ static const glyph_entry *glyph_get(const skp_ctx *ctx, int style, int size_px, 
     if (e)
         return e;
     const skp_font *f = &ctx->fonts[style == SKP_STYLE_IOS ? 0 : 1];
+    /* scripts the style font lacks (Hangul jamo) come from the fallback font */
+    if (stbtt_FindGlyphIndex(&f->info, (int)cp) == 0 && ctx->fonts[2].data &&
+        stbtt_FindGlyphIndex(&ctx->fonts[2].info, (int)cp) != 0)
+        f = &ctx->fonts[2];
     float scale = stbtt_ScaleForMappingEmToPixels(&f->info, (float)size_px);
     int x0, y0, x1, y1;
     stbtt_GetCodepointBitmapBox(&f->info, (int)cp, scale, scale, &x0, &y0, &x1, &y1);

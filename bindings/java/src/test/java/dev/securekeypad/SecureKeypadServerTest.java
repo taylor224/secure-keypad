@@ -103,6 +103,8 @@ class SecureKeypadServerTest {
             assertEquals(24, c.maxLen());
             assertEquals(1170L, c.inner.get("w"));
             assertEquals(648L, c.inner.get("h"));
+            assertEquals(List.of("en", "ko"), c.inner.get("langs")); // the default when nobody names languages
+            assertEquals(6, ((List<?>) c.inner.get("layouts")).size());
             assertTrue(c.tiles.length > 1000 && c.popups.length > 1000, "sprites present");
             assertEquals((byte) 0x89, c.tiles[0]);
             // no character identifiers in the key objects
@@ -129,6 +131,36 @@ class SecureKeypadServerTest {
     }
 
     @Test
+    void koreanLayersComposeSyllables() throws Exception {
+        try (SecureKeypadServer s = newServer()) {
+            TestClient c = new TestClient();
+            c.open(s.createSession(c.request("qwerty", 390, 3, "ios", null),
+                    SessionOptions.builder().ctx("ko").layout("fixed").languages("ko", "en").build()), serverSigningKey(s));
+            assertEquals(List.of("ko", "en"), c.inner.get("langs"));
+            List<?> layouts = (List<?>) c.inner.get("layouts");
+            assertEquals(6, layouts.size());
+            for (Object lo : layouts) {
+                long langKeys = ((List<?>) ((Map<?, ?>) lo).get("keys")).stream()
+                        .filter(k -> "lang".equals(((Map<?, ?>) k).get("role"))).count();
+                assertEquals(1, langKeys, "every qwerty layer has one lang key");
+            }
+            String payload = c.payload(c.maxLen(), TestClient.tapsForFixed(c.inner, 0, "ㅎㅏㄴㄱㅡㄹ Pw1!"));
+            try (Secret secret = s.decrypt(payload, "ko")) {
+                assertEquals("한글 Pw1!", secretText(secret));
+            }
+            // a single language has no lang key; unknown codes are rejected
+            TestClient solo = new TestClient();
+            solo.open(s.createSession(solo.request("qwerty", 390, 3, "ios", null),
+                    SessionOptions.builder().layout("fixed").languages(List.of("en")).build()), serverSigningKey(s));
+            assertEquals(List.of("en"), solo.inner.get("langs"));
+            assertEquals(4, ((List<?>) solo.inner.get("layouts")).size());
+            SkpException bad = assertThrows(SkpException.class, () -> s.createSession(solo.request("qwerty", 390, 3, "ios", null),
+                    SessionOptions.builder().languages("xx").build()));
+            assertEquals(SkpException.Code.UNSUPPORTED, bad.kind());
+        }
+    }
+
+    @Test
     void numberPadRoundTripIsAPermutationOfDigits() throws Exception {
         try (SecureKeypadServer s = newServer()) {
             TestClient c = new TestClient();
@@ -136,7 +168,7 @@ class SecureKeypadServerTest {
                     SessionOptions.builder().blank("random").build());
             c.open(resp, serverSigningKey(s));
             assertEquals(16, c.maxLen());
-            List<int[]> taps = TestClient.allCharTaps(c.inner, 4);
+            List<int[]> taps = TestClient.allCharTaps(c.inner, 0); // the number layer is slot 0
             assertEquals(10, taps.size());
             try (Secret secret = s.decrypt(c.payload(c.maxLen(), taps), null)) {
                 char[] digits = secretText(secret).toCharArray();
@@ -309,7 +341,7 @@ class SecureKeypadServerTest {
                         c.open(s.createSession(c.request(i % 2 == 0 ? "qwerty" : "number", 390 + id, 3, "ios", null),
                                 SessionOptions.builder().ctx(ctx).layout("fixed").build()), pk);
                         String text = i % 2 == 0 ? "t" + id + " q" : null;
-                        List<int[]> taps = text != null ? TestClient.tapsForFixed(c.inner, 0, text) : TestClient.allCharTaps(c.inner, 4);
+                        List<int[]> taps = text != null ? TestClient.tapsForFixed(c.inner, 0, text) : TestClient.allCharTaps(c.inner, 0);
                         try (Secret secret = s.decrypt(c.payload(c.maxLen(), taps), ctx)) {
                             String got = secretText(secret);
                             if (text != null) {

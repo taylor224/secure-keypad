@@ -24,7 +24,7 @@ bindings/wasm/build.sh            # → dist/skp.js + dist/skp.wasm (libsodium i
 <script src="src/skp-wasm-server.js"></script>
 <script>
   const server = await SkpWasmServer.create({ moduleUrl: "dist/skp.js" });   // random master key
-  const fetchImpl = server.makeFetch({ echo: false });                         // serves /keypad/* and /login
+  const fetchImpl = server.makeFetch({ echo: false, languages: "ko,en" });    // serves /keypad/* and /login; languages optional
   const kp = SecureKeypad.createSecureKeypad({ sessionUrl: "/keypad/session", fetch: fetchImpl, serverPublicKey: server.publicKey, type: "number" });
 </script>
 ```

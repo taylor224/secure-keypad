@@ -1,5 +1,6 @@
 package dev.securekeypad.protocol
 
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -35,14 +36,20 @@ class ClientSession private constructor(private var privateKey: ByteArray?, val 
         fun fromPrivateKey(sk: ByteArray): ClientSession = ClientSession(sk.copyOf(), Crypto.x25519Public(sk))
     }
 
-    /** The session creation request (spec §4.1). */
-    fun requestJson(type: KeypadType, viewport: Viewport, maxLen: Int? = null): String {
+    /**
+     * The session creation request (spec §4.1). [languages] asks for keyboard languages in switch order
+     * (the server may override it; the default is en + ko).
+     */
+    fun requestJson(type: KeypadType, viewport: Viewport, maxLen: Int? = null, languages: List<String>? = null): String {
         val o = JSONObject()
         o.put("v", 1)
         o.put("kp", B64.encode(publicKey))
         o.put("type", type.wire)
         o.put("viewport", viewport.toJson())
-        if (maxLen != null) o.put("opts", JSONObject().put("maxLen", maxLen))
+        val opts = JSONObject()
+        if (maxLen != null) opts.put("maxLen", maxLen)
+        if (!languages.isNullOrEmpty() && type == KeypadType.QWERTY) opts.put("langs", JSONArray(languages))
+        if (opts.length() > 0) o.put("opts", opts)
         return o.toString()
     }
 

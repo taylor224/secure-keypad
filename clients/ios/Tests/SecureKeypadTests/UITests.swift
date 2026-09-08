@@ -89,5 +89,41 @@ final class UITests: XCTestCase {
         XCTAssertEqual(reported.last?.layoutID, sym1.id)
         XCTAssertEqual(reported.count, 3)
     }
+
+    func testLanguageKeyCyclesLetterLayers() throws {
+        let v = try loadVector("qwerty-ios-390x3-ko-en-shuffle")
+        let inner = (v["expect_session"] as! [String: Any])["inner_json"] as! String
+        let set = try KeypadLayoutSet.decode(Data(inner.utf8))
+        XCTAssertEqual(set.languages, ["ko", "en"])
+        let view = SecureKeypadInputView()
+        view.contentScaleFactor = 3
+        view.frame = CGRect(x: 0, y: 0, width: 390, height: 216)
+        view.apply(layoutSet: set, tiles: Data(), popups: Data())
+        view.layoutIfNeeded()
+        var reported: [Tap] = []
+        var switched: [String] = []
+        view.onTap = { reported.append($0) }
+        view.onLang = { switched.append($0) }
+
+        let ko = set.layout(for: .lower, lang: "ko")!, en = set.layout(for: .lower, lang: "en")!, enUpper = set.layout(for: .upper, lang: "en")!
+        XCTAssertEqual(view.language, "ko", "the first installed language is shown")
+        let p = { (k: KeypadKey) in CGPoint(x: CGFloat(k.x + k.w / 2) / 3, y: CGFloat(k.y + k.h / 2) / 3) }
+        view.simulateTap(at: p(ko.keys[0]))
+        XCTAssertEqual(reported.last?.layoutID, ko.id)
+        let globe = ko.keys.first { $0.role == .lang }!
+        view.simulateTap(at: p(globe))                      // ko → en
+        XCTAssertEqual(view.language, "en")
+        XCTAssertEqual(switched, ["en"])
+        view.simulateTap(at: p(en.keys[0]))
+        XCTAssertEqual(reported.last?.layoutID, en.id)
+        view.simulateTap(at: p(en.keys.first { $0.role == .shift }!))
+        view.simulateTap(at: p(enUpper.keys[1]))
+        XCTAssertEqual(reported.last?.layoutID, enUpper.id)
+        view.simulateTap(at: p(globe))                      // en → ko (wraps)
+        XCTAssertEqual(view.language, "ko")
+        XCTAssertTrue(view.setLanguage("en") && !view.setLanguage("xx"))
+        XCTAssertEqual(view.language, "en")
+        XCTAssertEqual(reported.count, 3, "the lang key is never reported as a tap")
+    }
 }
 #endif

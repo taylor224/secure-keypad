@@ -32,7 +32,7 @@ final class VectorTests: XCTestCase {
 
     func testAllVectors() throws {
         let vectors = try loadVectors()
-        XCTAssertEqual(vectors.count, 7)
+        XCTAssertEqual(vectors.count, 11)
         for (name, v) in vectors {
             try runVector(name, v)
         }
@@ -53,8 +53,9 @@ final class VectorTests: XCTestCase {
         let viewport = Viewport(w: (vp["w"] as! NSNumber).doubleValue, dpr: (vp["dpr"] as! NSNumber).doubleValue,
                                 platform: vp["platform"] as! String, style: vp["style"] as? String)
         let maxLen = (request["opts"] as? [String: Any])?["maxLen"] as? Int
+        let langs = (request["opts"] as? [String: Any])?["langs"] as? [String]
         let req = try JSONSerialization.jsonObject(with: session.requestJSON(
-            type: KeypadType(rawValue: request["type"] as! String)!, viewport: viewport, maxLen: maxLen)) as! NSDictionary
+            type: KeypadType(rawValue: request["type"] as! String)!, viewport: viewport, maxLen: maxLen, languages: langs)) as! NSDictionary
         XCTAssertEqual(req, request as NSDictionary, "\(name): request json")
 
         let responseObj = expectSession["response"] as! [String: Any]
@@ -84,6 +85,15 @@ final class VectorTests: XCTestCase {
         XCTAssertTrue(try jsonEqual(expectSession["inner_json"] as! String, JSONEncoder().encode(set)) ||
             jsonEqualDecoded(expectSession["inner_json"] as! String, set), "\(name): inner json")
         XCTAssertEqual(session.tiles.count, 0, "vectors are rendered without sprites")
+        // language layers: every letter layer names its language, symbol layers do not; a lang key iff ≥ 2 languages
+        let installed = set.languages
+        for layout in set.layouts {
+            let letters = layout.mode == .lower || layout.mode == .upper
+            XCTAssertEqual(layout.lang != nil, letters, "\(name): lang on letter layers only")
+            if letters { XCTAssertTrue(installed.contains(layout.lang!), "\(name): layer language is installed") }
+            let langKeys = layout.keys.filter { $0.role == .lang }.count
+            XCTAssertEqual(langKeys, set.type == .qwerty && installed.count >= 2 ? 1 : 0, "\(name): lang key count")
+        }
 
         // relayout
         if let relayout = v["relayout"] as? [String: Any] {
@@ -147,7 +157,7 @@ final class VectorTests: XCTestCase {
         // A covers x 0...9, B covers x 11...20; x = 10 is one pixel from both.
         let a = KeypadKey(r: [0, 0, 10, 10], role: .char, t: 0)
         let b = KeypadKey(r: [11, 0, 10, 10], role: .char, t: 1)
-        let layout = KeypadLayout(id: 0, mode: .lower, keys: [a, b])
+        let layout = KeypadLayout(id: 0, mode: .lower, lang: "en", keys: [a, b])
         XCTAssertEqual(layout.hitTest(x: 5, y: 5), a)
         XCTAssertEqual(layout.hitTest(x: 15, y: 5), b)
         XCTAssertEqual(layout.hitTest(x: 10, y: 5), a, "tie resolves to the first key")

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 const char *const skp_role_names[] = {"char",      "space",     "shift",     "backspace", "mode_abc",
-                                      "mode_sym1", "mode_sym2", "done",      "blank"};
+                                      "mode_sym1", "mode_sym2", "done",      "blank",     "lang"};
 
 typedef struct {
     int64_t inset_x, gap, top, key_h, pitch, H, side_key, mode_key, num_key_h, glyph, popup_glyph;
@@ -12,9 +12,91 @@ typedef struct {
 static const skp_metrics METRICS_IOS = {3000, 6000, 8000, 42000, 54000, 216000, 42000, 87000, 46000, 22500, 34000};
 static const skp_metrics METRICS_MATERIAL = {4000, 4000, 6000, 44000, 52000, 214000, 52000, 56000, 44000, 22000, 30000};
 
-static const uint32_t ROW_L0[] = {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'};
-static const uint32_t ROW_L1[] = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'};
-static const uint32_t ROW_L2[] = {'z', 'x', 'c', 'v', 'b', 'n', 'm'};
+/* ---- languages (spec/LAYOUT.md §3) ---------------------------------------------------------- */
+typedef struct {
+    int id;
+    const char *code;
+    const uint32_t *rows[3]; /* 10, 9, 7 characters */
+    const uint32_t (*shift)[2]; /* base → shifted pairs; NULL: ASCII uppercase */
+    int nshift;
+} skp_lang_def;
+
+static const uint32_t EN0[10] = {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'};
+static const uint32_t EN1[9] = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'};
+static const uint32_t EN2[7] = {'z', 'x', 'c', 'v', 'b', 'n', 'm'};
+/* Korean 2-set (두벌식): ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ / ㅁㄴㅇㄹㅎㅗㅓㅏㅣ / ㅋㅌㅊㅍㅠㅜㅡ, shift: ㅃㅉㄸㄲㅆ ㅒㅖ */
+static const uint32_t KO0[10] = {0x3142, 0x3148, 0x3137, 0x3131, 0x3145, 0x315B, 0x3155, 0x3151, 0x3150, 0x3154};
+static const uint32_t KO1[9] = {0x3141, 0x3134, 0x3147, 0x3139, 0x314E, 0x3157, 0x3153, 0x314F, 0x3163};
+static const uint32_t KO2[7] = {0x314B, 0x314C, 0x314A, 0x314D, 0x3160, 0x315C, 0x3161};
+static const uint32_t KO_SHIFT[7][2] = {{0x3142, 0x3143}, {0x3148, 0x3149}, {0x3137, 0x3138}, {0x3131, 0x3132},
+                                        {0x3145, 0x3146}, {0x3150, 0x3152}, {0x3154, 0x3156}};
+
+static const skp_lang_def LANGS[] = {
+    {SKP_LANG_EN, "en", {EN0, EN1, EN2}, NULL, 0},
+    {SKP_LANG_KO, "ko", {KO0, KO1, KO2}, KO_SHIFT, 7},
+};
+#define NLANG_DEFS ((int)(sizeof LANGS / sizeof LANGS[0]))
+static const int ROW_N[3] = {10, 9, 7};
+
+static const skp_lang_def *lang_def(int id) {
+    for (int i = 0; i < NLANG_DEFS; i++)
+        if (LANGS[i].id == id)
+            return &LANGS[i];
+    return NULL;
+}
+
+int skp_lang_by_code(const char *code, size_t len) {
+    if (!code)
+        return 0;
+    for (int i = 0; i < NLANG_DEFS; i++)
+        if (strlen(LANGS[i].code) == len && !memcmp(LANGS[i].code, code, len))
+            return LANGS[i].id;
+    return 0;
+}
+
+const char *skp_lang_code(int id) {
+    const skp_lang_def *d = lang_def(id);
+    return d ? d->code : NULL;
+}
+
+int skp_parse_langs(const char *csv, uint8_t out[SKP_MAX_LANGS], int *nout) {
+    int n = 0;
+    const char *p = csv;
+    for (;;) {
+        while (*p == ' ')
+            p++;
+        const char *start = p;
+        while (*p && *p != ',')
+            p++;
+        const char *end = p;
+        while (end > start && end[-1] == ' ')
+            end--;
+        int id = skp_lang_by_code(start, (size_t)(end - start));
+        if (!id || n >= SKP_MAX_LANGS)
+            return SKP_ERR_UNSUPPORTED;
+        for (int i = 0; i < n; i++)
+            if (out[i] == id)
+                return SKP_ERR_UNSUPPORTED;
+        out[n++] = (uint8_t)id;
+        if (*p != ',')
+            break;
+        p++;
+    }
+    *nout = n;
+    return n ? SKP_OK : SKP_ERR_UNSUPPORTED;
+}
+
+static uint32_t upper_of(uint32_t c) { return (c >= 'a' && c <= 'z') ? c - 32 : c; }
+
+static uint32_t shifted(const skp_lang_def *d, uint32_t c) {
+    if (!d->shift)
+        return upper_of(c);
+    for (int i = 0; i < d->nshift; i++)
+        if (d->shift[i][0] == c)
+            return d->shift[i][1];
+    return c;
+}
+
 static const uint32_t ROW_S10[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
 static const uint32_t ROW_S11[] = {'-', '/', ':', ';', '(', ')', '$', '&', '@', '"'};
 static const uint32_t ROW_S12[] = {'.', ',', '?', '!', '\''};
@@ -55,7 +137,7 @@ static uint32_t drbg_u32(skp_drbg *d) {
         size_t nl = d->len * 2;
         uint8_t *nb = sodium_malloc(nl);
         if (!nb)
-            return 0; /* cannot happen in practice: the stream is consumed ~100 times per layout */
+            return 0; /* cannot happen in practice: the stream is consumed ~150 times per layout */
         randombytes_buf_deterministic(nb, nl, d->seed);
         sodium_free(d->buf);
         d->buf = nb;
@@ -130,10 +212,8 @@ static void full_shuffle(skp_drbg *d, uint32_t *r0, int n0, uint32_t *r1, int n1
     sodium_memzero(flat, sizeof flat);
 }
 
-static uint32_t upper_of(uint32_t c) { return (c >= 'a' && c <= 'z') ? c - 32 : c; }
-
-int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style, int32_t W, uint32_t dpr_milli,
-                     const uint8_t seed[SKP_SEED_BYTES]) {
+int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style, const uint8_t *langs, int nlangs,
+                     int32_t W, uint32_t dpr_milli, const uint8_t seed[SKP_SEED_BYTES]) {
     memset(out, 0, sizeof *out);
     const skp_metrics *m = style == SKP_STYLE_IOS ? &METRICS_IOS : &METRICS_MATERIAL;
     out->type = type;
@@ -149,16 +229,35 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
     for (int r = 0; r < 4; r++)
         ys[r] = top + r * pitch;
 
+    const skp_lang_def *defs[SKP_MAX_LANGS] = {NULL, NULL, NULL};
+    if (type == SKP_TYPE_QWERTY) {
+        if (nlangs < 1 || nlangs > SKP_MAX_LANGS || !langs)
+            return SKP_ERR_UNSUPPORTED;
+        for (int li = 0; li < nlangs; li++) {
+            defs[li] = lang_def(langs[li]);
+            if (!defs[li])
+                return SKP_ERR_UNSUPPORTED;
+            for (int k = 0; k < li; k++)
+                if (langs[k] == langs[li])
+                    return SKP_ERR_UNSUPPORTED;
+        }
+        out->nlangs = nlangs;
+        memcpy(out->langs, langs, (size_t)nlangs);
+    } else if (type != SKP_TYPE_NUMBER) {
+        return SKP_ERR_UNSUPPORTED;
+    }
+
     skp_drbg d;
     int rc = drbg_init(&d, seed);
     if (rc)
         return rc;
 
     if (type == SKP_TYPE_QWERTY) {
-        uint32_t l0[10], l1[9], l2[7], s10[10], s11[10], s12[5], s20[10], s21[10], s22[5];
-        copy_row(l0, ROW_L0, 10);
-        copy_row(l1, ROW_L1, 9);
-        copy_row(l2, ROW_L2, 7);
+        uint32_t rows[SKP_MAX_LANGS][3][10];
+        uint32_t s10[10], s11[10], s12[5], s20[10], s21[10], s22[5];
+        for (int li = 0; li < nlangs; li++)
+            for (int r = 0; r < 3; r++)
+                copy_row(rows[li][r], defs[li]->rows[r], ROW_N[r]);
         copy_row(s10, ROW_S10, 10);
         copy_row(s11, ROW_S11, 10);
         copy_row(s12, ROW_S12, 5);
@@ -166,9 +265,9 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
         copy_row(s21, ROW_S21, 10);
         copy_row(s22, ROW_S22, 5);
         if (policy == SKP_POLICY_SHUFFLE) {
-            drbg_fy(&d, l0, 10);
-            drbg_fy(&d, l1, 9);
-            drbg_fy(&d, l2, 7);
+            for (int li = 0; li < nlangs; li++)
+                for (int r = 0; r < 3; r++)
+                    drbg_fy(&d, rows[li][r], ROW_N[r]);
             drbg_fy(&d, s10, 10);
             drbg_fy(&d, s11, 10);
             drbg_fy(&d, s12, 5);
@@ -176,11 +275,13 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
             drbg_fy(&d, s21, 10);
             drbg_fy(&d, s22, 5);
         } else if (policy == SKP_POLICY_FULL) {
-            full_shuffle(&d, l0, 10, l1, 9, l2, 7);
+            for (int li = 0; li < nlangs; li++)
+                full_shuffle(&d, rows[li][0], 10, rows[li][1], 9, rows[li][2], 7);
             full_shuffle(&d, s10, 10, s11, 10, s12, 5);
             full_shuffle(&d, s20, 10, s21, 10, s22, 5);
         } else if (policy != SKP_POLICY_FIXED) {
             drbg_free(&d);
+            sodium_memzero(rows, sizeof rows);
             return SKP_ERR_UNSUPPORTED;
         }
         rect_t row0[10], row1[9], row1s[10], letters2[7], syms2[5];
@@ -200,66 +301,74 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
         int32_t wq = (int32_t)skp_rnd(W, 4);
         if (wq < mw)
             mw = wq;
-        rect_t mode3 = {ix, ys[3], mw, kh};
-        rect_t space3 = {ix + mw + g, ys[3], W - 2 * ix - 2 * mw - 2 * g, kh};
+        int has_lang = nlangs >= 2;
+        int32_t lw = sk < mw ? sk : mw;
+        rect_t mode3, lang3 = {0, 0, 0, 0}, space3;
+        if (has_lang) {
+            mode3 = (rect_t){ix, ys[3], lw, kh};
+            lang3 = (rect_t){ix + lw + g, ys[3], lw, kh};
+            space3 = (rect_t){ix + 2 * lw + 2 * g, ys[3], W - 2 * ix - 2 * lw - mw - 3 * g, kh};
+        } else {
+            mode3 = (rect_t){ix, ys[3], mw, kh};
+            space3 = (rect_t){ix + mw + g, ys[3], W - 2 * ix - 2 * mw - 2 * g, kh};
+        }
         rect_t done3 = {W - ix - mw, ys[3], mw, kh};
 
-        const uint32_t *rows[4][3] = {{l0, l1, l2}, {NULL, NULL, NULL}, {s10, s11, s12}, {s20, s21, s22}};
-        uint32_t u0[10], u1[9], u2[7];
-        for (int i = 0; i < 10; i++)
-            u0[i] = upper_of(l0[i]);
-        for (int i = 0; i < 9; i++)
-            u1[i] = upper_of(l1[i]);
-        for (int i = 0; i < 7; i++)
-            u2[i] = upper_of(l2[i]);
-        rows[1][0] = u0;
-        rows[1][1] = u1;
-        rows[1][2] = u2;
-        out->nlayers = 4;
-        for (int mode = 0; mode < 4; mode++) {
-            skp_layer *layer = &out->layers[mode];
-            layer->mode = mode;
-            layer->nkeys = 0;
-            int letters = (mode == SKP_MODE_LOWER || mode == SKP_MODE_UPPER);
-            for (int i = 0; i < 10; i++)
-                add_key(layer, row0[i], SKP_ROLE_CHAR, rows[mode][0][i]);
-            if (letters)
-                for (int i = 0; i < 9; i++)
-                    add_key(layer, row1[i], SKP_ROLE_CHAR, rows[mode][1][i]);
-            else
+        int slot = 0;
+        for (int li = 0; li < nlangs; li++) {
+            const skp_lang_def *def = defs[li];
+            for (int mode = SKP_MODE_LOWER; mode <= SKP_MODE_UPPER; mode++) {
+                skp_layer *layer = &out->layers[slot++];
+                layer->mode = mode;
+                layer->lang = langs[li];
+                layer->nkeys = 0;
+                int up = mode == SKP_MODE_UPPER;
                 for (int i = 0; i < 10; i++)
-                    add_key(layer, row1s[i], SKP_ROLE_CHAR, rows[mode][1][i]);
-            if (letters) {
+                    add_key(layer, row0[i], SKP_ROLE_CHAR, up ? shifted(def, rows[li][0][i]) : rows[li][0][i]);
+                for (int i = 0; i < 9; i++)
+                    add_key(layer, row1[i], SKP_ROLE_CHAR, up ? shifted(def, rows[li][1][i]) : rows[li][1][i]);
                 add_key(layer, left2, SKP_ROLE_SHIFT, 0);
                 for (int i = 0; i < 7; i++)
-                    add_key(layer, letters2[i], SKP_ROLE_CHAR, rows[mode][2][i]);
+                    add_key(layer, letters2[i], SKP_ROLE_CHAR, up ? shifted(def, rows[li][2][i]) : rows[li][2][i]);
                 add_key(layer, backspace2, SKP_ROLE_BACKSPACE, 0);
                 add_key(layer, mode3, SKP_ROLE_MODE_SYM1, 0);
-            } else {
-                add_key(layer, left2, mode == SKP_MODE_SYM1 ? SKP_ROLE_MODE_SYM2 : SKP_ROLE_MODE_SYM1, 0);
-                for (int i = 0; i < 5; i++)
-                    add_key(layer, syms2[i], SKP_ROLE_CHAR, rows[mode][2][i]);
-                add_key(layer, backspace2, SKP_ROLE_BACKSPACE, 0);
-                add_key(layer, mode3, SKP_ROLE_MODE_ABC, 0);
+                if (has_lang)
+                    add_key(layer, lang3, SKP_ROLE_LANG, 0);
+                add_key(layer, space3, SKP_ROLE_SPACE, ' ');
+                add_key(layer, done3, SKP_ROLE_DONE, 0);
             }
+        }
+        const uint32_t *sym_rows[2][3] = {{s10, s11, s12}, {s20, s21, s22}};
+        for (int si = 0; si < 2; si++) {
+            skp_layer *layer = &out->layers[slot++];
+            layer->mode = si == 0 ? SKP_MODE_SYM1 : SKP_MODE_SYM2;
+            layer->lang = 0;
+            layer->nkeys = 0;
+            for (int i = 0; i < 10; i++)
+                add_key(layer, row0[i], SKP_ROLE_CHAR, sym_rows[si][0][i]);
+            for (int i = 0; i < 10; i++)
+                add_key(layer, row1s[i], SKP_ROLE_CHAR, sym_rows[si][1][i]);
+            add_key(layer, left2, si == 0 ? SKP_ROLE_MODE_SYM2 : SKP_ROLE_MODE_SYM1, 0);
+            for (int i = 0; i < 5; i++)
+                add_key(layer, syms2[i], SKP_ROLE_CHAR, sym_rows[si][2][i]);
+            add_key(layer, backspace2, SKP_ROLE_BACKSPACE, 0);
+            add_key(layer, mode3, SKP_ROLE_MODE_ABC, 0);
+            if (has_lang)
+                add_key(layer, lang3, SKP_ROLE_LANG, 0);
             add_key(layer, space3, SKP_ROLE_SPACE, ' ');
             add_key(layer, done3, SKP_ROLE_DONE, 0);
         }
+        out->nlayers = slot;
         out->tile_h = kh;
         /* the shuffled rows are the secret mapping: do not leave them on the stack */
-        sodium_memzero(l0, sizeof l0);
-        sodium_memzero(l1, sizeof l1);
-        sodium_memzero(l2, sizeof l2);
-        sodium_memzero(u0, sizeof u0);
-        sodium_memzero(u1, sizeof u1);
-        sodium_memzero(u2, sizeof u2);
+        sodium_memzero(rows, sizeof rows);
         sodium_memzero(s10, sizeof s10);
         sodium_memzero(s11, sizeof s11);
         sodium_memzero(s12, sizeof s12);
         sodium_memzero(s20, sizeof s20);
         sodium_memzero(s21, sizeof s21);
         sodium_memzero(s22, sizeof s22);
-    } else if (type == SKP_TYPE_NUMBER) {
+    } else {
         uint32_t digits[10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
         drbg_fy(&d, digits, 10);
         uint32_t b = blank == SKP_BLANK_RANDOM ? drbg_uniform(&d, 11) : 9;
@@ -269,6 +378,7 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
         out->nlayers = 1;
         skp_layer *layer = &out->layers[0];
         layer->mode = SKP_MODE_NUMBER;
+        layer->lang = 0;
         layer->nkeys = 0;
         int di = 0;
         for (int c = 0; c < 12; c++) {
@@ -283,9 +393,6 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
         }
         out->tile_h = nkh;
         sodium_memzero(digits, sizeof digits);
-    } else {
-        drbg_free(&d);
-        return SKP_ERR_UNSUPPORTED;
     }
     drbg_free(&d);
 
@@ -301,6 +408,8 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
         }
     out->tile_w = tw;
     out->tile_count = t;
+    /* libsodium's ChaCha20 leaves key-word spills in dead stack frames: scrub them */
+    sodium_stackzero(16384);
     out->popup_w = (int32_t)skp_rnd(3 * (int64_t)tw, 2);
     {
         int32_t cap = (int32_t)skp_rnd(3 * (int64_t)out->tile_h, 2);
@@ -311,9 +420,15 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
     return SKP_OK;
 }
 
-const skp_layer *skp_layout_layer(const skp_layout *l, int mode) {
+const skp_layer *skp_layout_slot(const skp_layout *l, int slot) {
+    if (slot < 0 || slot >= l->nlayers)
+        return NULL;
+    return &l->layers[slot];
+}
+
+const skp_layer *skp_layout_find(const skp_layout *l, int mode, int lang) {
     for (int i = 0; i < l->nlayers; i++)
-        if (l->layers[i].mode == mode)
+        if (l->layers[i].mode == mode && l->layers[i].lang == lang)
             return &l->layers[i];
     return NULL;
 }
@@ -358,12 +473,17 @@ char *skp_layout_json(const skp_layout *l, int gen, uint32_t max_len, int64_t ex
     cJSON_AddNumberToObject(root, "gen", gen);
     cJSON_AddNumberToObject(root, "maxLen", (double)max_len);
     cJSON_AddNumberToObject(root, "exp", (double)exp);
+    cJSON *langs = cJSON_AddArrayToObject(root, "langs");
+    for (int i = 0; i < l->nlangs; i++)
+        cJSON_AddItemToArray(langs, cJSON_CreateString(skp_lang_code(l->langs[i])));
     cJSON *layouts = cJSON_AddArrayToObject(root, "layouts");
     for (int i = 0; i < l->nlayers; i++) {
         const skp_layer *layer = &l->layers[i];
         cJSON *lo = cJSON_CreateObject();
-        cJSON_AddNumberToObject(lo, "id", (gen << 3) | layer->mode);
+        cJSON_AddNumberToObject(lo, "id", (gen << 3) | i);
         cJSON_AddStringToObject(lo, "mode", mode_name(layer->mode));
+        if (layer->lang)
+            cJSON_AddStringToObject(lo, "lang", skp_lang_code(layer->lang));
         cJSON *keys = cJSON_AddArrayToObject(lo, "keys");
         for (int k = 0; k < layer->nkeys; k++) {
             const skp_key *key = &layer->keys[k];

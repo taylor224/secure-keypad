@@ -141,6 +141,17 @@ int main(int argc, char **argv) {
     if (jstr(so, "blank"))
         strncpy(blank_opt, jstr(so, "blank"), 15);
     uint32_t ttl = (uint32_t)jint(so, "ttl"), max_len = (uint32_t)jint(so, "maxLen");
+    char langs_csv[64] = {0};
+    {
+        const cJSON *langs = cJSON_GetObjectItemCaseSensitive(so, "languages");
+        const cJSON *code;
+        if (cJSON_IsArray(langs))
+            cJSON_ArrayForEach(code, langs) {
+                if (*langs_csv)
+                    strncat(langs_csv, ",", sizeof langs_csv - strlen(langs_csv) - 1);
+                strncat(langs_csv, code->valuestring, sizeof langs_csv - strlen(langs_csv) - 1);
+            }
+    }
     const cJSON *hooks = cJSON_GetObjectItemCaseSensitive(v, "hooks");
     uint8_t s_sk[32], sid[16], seed[32], nonce24[24];
     unhex(s_sk, 32, jstr(hooks, "s_sk"));
@@ -186,7 +197,8 @@ int main(int argc, char **argv) {
     CHECK(rc == SKP_OK, "init %s", skp_strerror(rc));
     skp_test_hooks h = {s_sk, sid, seed, nonce24, now, 0};
     skp_test_set_hooks(&h);
-    skp_session_opts opts = {ctxs[0] ? ctxs : NULL, layout_opt[0] ? layout_opt : NULL, blank_opt[0] ? blank_opt : NULL, ttl, max_len};
+    skp_session_opts opts = {ctxs[0] ? ctxs : NULL, layout_opt[0] ? layout_opt : NULL, blank_opt[0] ? blank_opt : NULL, ttl, max_len,
+                             langs_csv[0] ? langs_csv : NULL};
     skp_buf resp = {0}, sealed = {0};
     rc = skp_session_create(ctx, req, 0, &opts, &resp, &sealed);
     CHECK(rc == SKP_OK, "create %s", skp_strerror(rc));

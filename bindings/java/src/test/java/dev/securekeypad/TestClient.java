@@ -31,7 +31,10 @@ import javax.crypto.spec.SecretKeySpec;
  */
 final class TestClient {
     static final String LOWER = "qwertyuiopasdfghjklzxcvbnm";
+    static final String KO_LOWER = "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ";
+    static final String KO_UPPER = "ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ";
     static final String SYM1 = "1234567890-/:;()$&@\".,?!'";
+    static final String SYM2 = "[]{}#%^*+=_\\|~<>€£¥•.,?!'";
 
     final KeyPair keyPair;
     final byte[] publicKeyRaw;
@@ -131,59 +134,71 @@ final class TestClient {
 
     /** Key-centre taps for {@code text} on a {@code layout = "fixed"} QWERTY session. */
     @SuppressWarnings("unchecked")
+    /** Characters of a fixed (unshuffled) layer in listing order, by mode and language; null for number layers. */
+    static String fixedChars(Map<String, Object> layer) {
+        String mode = (String) layer.get("mode");
+        String lang = (String) layer.get("lang");
+        if ("sym1".equals(mode)) {
+            return SYM1;
+        }
+        if ("sym2".equals(mode)) {
+            return SYM2;
+        }
+        if ("ko".equals(lang)) {
+            return "lower".equals(mode) ? KO_LOWER : KO_UPPER;
+        }
+        if ("en".equals(lang)) {
+            return "lower".equals(mode) ? LOWER : LOWER.toUpperCase();
+        }
+        return null;
+    }
+
+    /** Taps at key centres that type {@code text} on a fixed layout; Korean text is given as jamo. Layer ids
+     *  (which carry the generation) come from the JSON, so {@code gen} only documents the caller's intent. */
+    @SuppressWarnings("unchecked")
     static List<int[]> tapsForFixed(Map<String, Object> inner, int gen, String text) {
         List<int[]> taps = new ArrayList<>();
-        for (char c : text.toCharArray()) {
-            int mode;
-            int index;
-            String role = "char";
-            if (c == ' ') {
-                mode = 0;
-                index = 0;
-                role = "space";
-            } else if (LOWER.indexOf(c) >= 0) {
-                mode = 0;
-                index = LOWER.indexOf(c);
-            } else if (LOWER.toUpperCase().indexOf(c) >= 0) {
-                mode = 1;
-                index = LOWER.toUpperCase().indexOf(c);
-            } else if (SYM1.indexOf(c) >= 0) {
-                mode = 2;
-                index = SYM1.indexOf(c);
-            } else {
-                throw new IllegalArgumentException("character not on the fixed keypad: " + c);
-            }
-            int id = (gen << 3) | mode;
-            Map<String, Object> layer = null;
-            for (Object o : (List<Object>) inner.get("layouts")) {
-                Map<String, Object> l = (Map<String, Object>) o;
-                if (((Long) l.get("id")).intValue() == id) {
-                    layer = l;
-                }
-            }
-            if (layer == null) {
-                throw new IllegalStateException("no layer with id " + id);
-            }
-            int seen = 0;
+        text.codePoints().forEach(c -> {
             int[] tap = null;
-            for (Object o : (List<Object>) layer.get("keys")) {
-                Map<String, Object> k = (Map<String, Object>) o;
-                if (!role.equals(k.get("role"))) {
-                    continue;
+            for (Object o : (List<Object>) inner.get("layouts")) {
+                Map<String, Object> layer = (Map<String, Object>) o;
+                int id = ((Long) layer.get("id")).intValue();
+                String role = "char";
+                int index;
+                if (c == ' ') {
+                    role = "space";
+                    index = 0;
+                } else {
+                    String chars = fixedChars(layer);
+                    index = chars == null ? -1 : chars.indexOf(c);
+                    if (index < 0) {
+                        continue;
+                    }
+                    index = chars.codePointCount(0, index);
                 }
-                if (seen++ == index) {
-                    List<Object> r = (List<Object>) k.get("r");
-                    int x = ((Long) r.get(0)).intValue() + ((Long) r.get(2)).intValue() / 2;
-                    int y = ((Long) r.get(1)).intValue() + ((Long) r.get(3)).intValue() / 2;
-                    tap = new int[] {id, x, y};
+                int seen = 0;
+                for (Object ko : (List<Object>) layer.get("keys")) {
+                    Map<String, Object> k = (Map<String, Object>) ko;
+                    if (!role.equals(k.get("role"))) {
+                        continue;
+                    }
+                    if (seen++ == index) {
+                        List<Object> r = (List<Object>) k.get("r");
+                        int x = ((Long) r.get(0)).intValue() + ((Long) r.get(2)).intValue() / 2;
+                        int y = ((Long) r.get(1)).intValue() + ((Long) r.get(3)).intValue() / 2;
+                        tap = new int[] {id, x, y};
+                        break;
+                    }
+                }
+                if (tap != null) {
                     break;
                 }
             }
             if (tap == null) {
-                throw new IllegalStateException("key not found for " + c);
+                throw new IllegalStateException("key not found for " + new String(Character.toChars(c)) + " (gen " + gen + ")");
             }
             taps.add(tap);
-        }
+        });
         return taps;
     }
 

@@ -8,10 +8,14 @@ const require = createRequire(import.meta.url);
 const dist = join(__dirname, "..", "dist", "skp.js");
 const SkpWasmServer = require("../src/skp-wasm-server.js");
 
+/** Characters of the fixed (unshuffled) layers in listing order, keyed by "lang/mode" for letter layers. */
 const FIXED: Record<string, string> = {
-  lower: "qwertyuiopasdfghjklzxcvbnm",
-  upper: "QWERTYUIOPASDFGHJKLZXCVBNM",
+  "en/lower": "qwertyuiopasdfghjklzxcvbnm",
+  "en/upper": "QWERTYUIOPASDFGHJKLZXCVBNM",
+  "ko/lower": "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ",
+  "ko/upper": "ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ",
   sym1: "1234567890-/:;()$&@\".,?!'",
+  sym2: "[]{}#%^*+=_\\|~<>€£¥•.,?!'",
 };
 
 function tapsForFixed(layout: LayoutSet, text: string): Tap[] {
@@ -21,7 +25,7 @@ function tapsForFixed(layout: LayoutSet, text: string): Tap[] {
         const k = layer.keys.find((k) => k.role === "space");
         if (k) return { layoutId: layer.id, x: k.r[0] + (k.r[2] >> 1), y: k.r[1] + (k.r[3] >> 1) };
       }
-      const chars = FIXED[layer.mode];
+      const chars = FIXED[layer.lang ? `${layer.lang}/${layer.mode}` : layer.mode];
       if (!chars) continue;
       const idx = Array.from(chars).indexOf(ch);
       if (idx < 0) continue;
@@ -69,6 +73,24 @@ describe.skipIf(!existsSync(dist))("wasm server", () => {
     const bytes = server.decrypt(buildInputPayload(session, taps), { ctx: "n" });
     expect(Array.from(new TextDecoder().decode(bytes)).sort().join("")).toBe("0123456789");
     void layer;
+  });
+
+  it("installs languages from the option or the X-Keypad-Languages header and composes Hangul", async () => {
+    const keys = generateClientKeys();
+    const response = server.createSession(buildSessionRequest(keys, "qwerty", { w: 390, dpr: 3, platform: "ios" }), { ctx: "k", layout: "fixed", languages: ["ko", "en"] });
+    const session = openSession(response, keys, server.publicKey);
+    expect(session.layout.langs).toEqual(["ko", "en"]);
+    expect(session.layout.layouts).toHaveLength(6);
+    const bytes = server.decrypt(buildInputPayload(session, tapsForFixed(session.layout, "ㅂㅣㅁㅣㄹ Pw")), { ctx: "k" });
+    expect(new TextDecoder().decode(bytes)).toBe("비밀 Pw");
+    const f = server.makeFetch({ echo: true });
+    const keys2 = generateClientKeys();
+    const res = await f("http://x/keypad/session", { method: "POST", headers: { "x-login-ctx": "h", "x-keypad-layout": "fixed", "x-keypad-languages": "ko" }, body: JSON.stringify(buildSessionRequest(keys2, "qwerty", { w: 390, dpr: 3, platform: "web" })) });
+    const s2 = openSession(await res.json(), keys2, server.publicKey);
+    expect(s2.layout.langs).toEqual(["ko"]);
+    expect(s2.layout.layouts).toHaveLength(4);
+    const login = await (await f("http://x/login", { method: "POST", headers: { "x-login-ctx": "h" }, body: JSON.stringify({ password_enc: buildInputPayload(s2, tapsForFixed(s2.layout, "ㄷㅏㄹㄱ")) }) })).json();
+    expect(login).toMatchObject({ ok: true, password: "닭" });
   });
 
   it("serves the example routes through makeFetch", async () => {

@@ -10,6 +10,7 @@ jobs:
     name: C core (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
@@ -22,6 +23,10 @@ jobs:
         run: cmake -S core -B core/build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DSKP_SANITIZE=${{ runner.os == 'Linux' && 'ON' || 'OFF' }}
       - run: cmake --build core/build
       - name: Tests (vectors, API, render, memory residue)
+        # fake stacks (use-after-return detection) keep dead frames alive and defeat stack scrubbing;
+        # the residue test needs the real stack
+        env:
+          ASAN_OPTIONS: detect_stack_use_after_return=0
         run: cd core/build && ctest --output-on-failure
 
   reference:

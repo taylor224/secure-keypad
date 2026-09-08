@@ -23,7 +23,7 @@ import json
 import os
 import threading
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Union
 
 from ._skp import ffi, lib
 
@@ -289,6 +289,7 @@ class SecureKeypadServer:
         default_ttl: int = 180,
         max_len_cap: int = 256,
         store: Optional[SessionStore] = None,
+        font_fallback_path: Optional[str] = None,
     ):
         if master_key_path is not None and master_key is not None:
             raise ValueError("pass either master_key_path or master_key, not both")
@@ -315,6 +316,10 @@ class SecureKeypadServer:
                 cfg.master_key_len = 0
             keep.append(k)
             cfg.master_key = k
+        if font_fallback_path is not None:
+            f = ffi.new("char[]", os.fsencode(font_fallback_path))
+            keep.append(f)
+            cfg.font_fallback_path = f
         cfg.default_ttl_sec = int(default_ttl)
         cfg.max_len_cap = int(max_len_cap)
         out = ffi.new("skp_ctx **")
@@ -387,6 +392,7 @@ class SecureKeypadServer:
         blank: str = "fixed",
         ttl: Optional[int] = None,
         max_len: Optional[int] = None,
+        languages: Union[Iterable[str], str, None] = None,
     ) -> Dict[str, Any]:
         """Creates a session from the client's request. Returns the response to send to the client.
 
@@ -394,12 +400,16 @@ class SecureKeypadServer:
         ``ctx`` binds the session to an application context (user id, login attempt); the same value
         must be passed to :meth:`decrypt`. ``layout`` is ``"shuffle"`` (default), ``"full"``, or
         ``"fixed"`` (warning: coordinates reveal characters by geometry). ``blank`` places the number
-        pad's empty cell (``"fixed"`` | ``"random"``).
+        pad's empty cell (``"fixed"`` | ``"random"``). ``languages`` lists the QWERTY keypad's languages in
+        switch order (``["en", "ko"]``, ``["ko"]``, or ``"en,ko"``); ``None`` honours the client's request
+        (``opts.langs``) and otherwise defaults to English + Korean. Ignored for number pads.
         """
         req = _to_json_bytes(request)
         opts = ffi.new("skp_session_opts *")
         keep = []
-        for field, value in (("ctx", ctx), ("layout", layout), ("blank", blank)):
+        if languages is not None and not isinstance(languages, str):
+            languages = ",".join(languages)
+        for field, value in (("ctx", ctx), ("layout", layout), ("blank", blank), ("languages", languages)):
             if value:
                 c = ffi.new("char[]", str(value).encode("utf-8"))
                 keep.append(c)

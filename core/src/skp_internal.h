@@ -32,7 +32,7 @@
 #define SKP_DEFAULT_CAP 256
 #define SKP_MIN_W 200
 #define SKP_MAX_W 8192
-#define SKP_STATE_HEAD 146
+#define SKP_STATE_HEAD 150 /* 146 fixed fields + u8 nlangs + 3 × u8 language id */
 #define SKP_STATE_GEN 37
 
 enum { SKP_TYPE_QWERTY = 1, SKP_TYPE_NUMBER = 2 };
@@ -41,6 +41,9 @@ enum { SKP_BLANK_FIXED = 0, SKP_BLANK_RANDOM = 1 };
 enum { SKP_STYLE_IOS = 1, SKP_STYLE_MATERIAL = 2 };
 enum { SKP_PLATFORM_IOS = 1, SKP_PLATFORM_ANDROID = 2, SKP_PLATFORM_WEB = 3 };
 enum { SKP_MODE_LOWER = 0, SKP_MODE_UPPER = 1, SKP_MODE_SYM1 = 2, SKP_MODE_SYM2 = 3, SKP_MODE_NUMBER = 4 };
+/* Keyboard languages (wire ids in the sealed state; codes on the API). */
+enum { SKP_LANG_EN = 1, SKP_LANG_KO = 2 };
+#define SKP_MAX_LANGS 3 /* 2 letter layers each + 2 symbol layers ≤ 8 slots per generation */
 
 typedef enum {
     SKP_ROLE_CHAR = 0,
@@ -51,14 +54,15 @@ typedef enum {
     SKP_ROLE_MODE_SYM1,
     SKP_ROLE_MODE_SYM2,
     SKP_ROLE_DONE,
-    SKP_ROLE_BLANK
+    SKP_ROLE_BLANK,
+    SKP_ROLE_LANG
 } skp_role;
 
 extern const char *const skp_role_names[];
 
 /* ---- layout --------------------------------------------------------------------------- */
 #define SKP_MAX_KEYS_PER_LAYER 40
-#define SKP_MAX_LAYERS 4
+#define SKP_MAX_LAYERS 8 /* layout_id = (gen << 3) | slot */
 
 typedef struct {
     int32_t x, y, w, h;
@@ -69,6 +73,7 @@ typedef struct {
 
 typedef struct {
     int mode;
+    int lang; /* language id for letter layers, 0 for symbol / number layers */
     int nkeys;
     skp_key keys[SKP_MAX_KEYS_PER_LAYER];
 } skp_layer;
@@ -77,17 +82,28 @@ typedef struct {
     int type, style;
     int32_t W, H;
     uint32_t dpr_milli;
-    int nlayers;
+    int nlangs;
+    uint8_t langs[SKP_MAX_LANGS];
+    int nlayers; /* layers[i] is slot i */
     skp_layer layers[SKP_MAX_LAYERS];
     int32_t tile_w, tile_h, tile_count;
     int32_t popup_w, popup_h;
     int32_t glyph_px, popup_glyph_px;
 } skp_layout;
 
-int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style, int32_t W,
-                     uint32_t dpr_milli, const uint8_t seed[SKP_SEED_BYTES]);
+int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style, const uint8_t *langs, int nlangs,
+                     int32_t W, uint32_t dpr_milli, const uint8_t seed[SKP_SEED_BYTES]);
 const skp_key *skp_layout_hit(const skp_layer *layer, int32_t x, int32_t y);
-const skp_layer *skp_layout_layer(const skp_layout *l, int mode);
+/* Layer by slot (the low 3 bits of a layout id), NULL when out of range. */
+const skp_layer *skp_layout_slot(const skp_layout *l, int slot);
+/* Layer by mode and language id (0 for symbol / number layers). */
+const skp_layer *skp_layout_find(const skp_layout *l, int mode, int lang);
+/* Languages: code ↔ id, "en,ko" parsing (SKP_OK or SKP_ERR_UNSUPPORTED). */
+int skp_lang_by_code(const char *code, size_t len);
+const char *skp_lang_code(int id);
+int skp_parse_langs(const char *csv, uint8_t out[SKP_MAX_LANGS], int *nout);
+/* Hangul 2-set composition (spec/HANGUL.md): jamo runs become syllables. out needs n slots. */
+size_t skp_hangul_compose(const uint32_t *in, size_t n, uint32_t *out);
 /* Canonical inner JSON (no sprites). Returns malloc'd NUL-terminated string. */
 char *skp_layout_json(const skp_layout *l, int gen, uint32_t max_len, int64_t exp);
 int64_t skp_rnd(int64_t a, int64_t b);
@@ -114,6 +130,8 @@ extern const unsigned char skp_font_inter[];
 extern const size_t skp_font_inter_len;
 extern const unsigned char skp_font_roboto[];
 extern const size_t skp_font_roboto_len;
+extern const unsigned char skp_font_hangul[];
+extern const size_t skp_font_hangul_len;
 
 /* ---- context ---------------------------------------------------------------------------- */
 struct skp_ctx {
@@ -123,7 +141,7 @@ struct skp_ctx {
     char kid[SKP_KID_CAP];
     uint32_t default_ttl;
     uint32_t max_len_cap;
-    skp_font fonts[2]; /* [0] ios, [1] material */
+    skp_font fonts[3]; /* [0] ios, [1] material, [2] fallback (Hangul) */
     skp_glyph_cache *glyphs;
 };
 
@@ -142,6 +160,8 @@ typedef struct {
 
 typedef struct {
     uint8_t type, policy, blank, style;
+    int nlangs;
+    uint8_t langs[SKP_MAX_LANGS];
     uint32_t max_len;
     int64_t created, expires;
     uint8_t sid[SKP_SID_BYTES];

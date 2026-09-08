@@ -4,11 +4,13 @@
   const frame = document.getElementById("screen");
   const layout = document.getElementById("layout");
   const theme = document.getElementById("theme");
+  const langs = document.getElementById("langs");
   const result = document.getElementById("result");
   const clock = document.querySelectorAll(".clock");
   const qs = new URLSearchParams(location.search);
   if (qs.get("layout")) layout.value = qs.get("layout");
   if (qs.get("theme")) theme.value = qs.get("theme");
+  if (langs && qs.get("langs") && [...langs.options].some((o) => o.value === qs.get("langs"))) langs.value = qs.get("langs");
 
   function load() {
     const u = new URL("app.html", location.href);
@@ -18,6 +20,7 @@
     u.searchParams.set("device", device);
     u.searchParams.set("theme", theme.value);
     u.searchParams.set("layout", layout.value);
+    if (langs) u.searchParams.set("langs", langs.value);
     u.searchParams.set("statusH", device === "ios" ? "54" : "32");
     u.searchParams.set("safeBottom", device === "ios" ? "34" : "24");
     frame.src = u.toString();
@@ -27,10 +30,12 @@
     const url = new URL(location.href);
     url.searchParams.set("layout", layout.value);
     url.searchParams.set("theme", theme.value);
+    if (langs) url.searchParams.set("langs", langs.value);
     history.replaceState(null, "", url);
   }
   layout.addEventListener("change", load);
   theme.addEventListener("change", load);
+  langs?.addEventListener("change", load);
   document.getElementById("reload").addEventListener("click", load);
   const note = document.getElementById("banner-note");
   window.addEventListener("message", (e) => {

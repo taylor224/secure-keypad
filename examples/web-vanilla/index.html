@@ -7,85 +7,130 @@
   <link rel="stylesheet" href="demo.css">
 </head>
 <body>
-  <nav class="topnav">
-    <a class="brand" href="./">secure-keypad</a>
-    <a href="./" class="active">일반 웹</a>
-    <a href="ios.html">iOS 시뮬레이션</a>
-    <a href="android.html">Android 시뮬레이션</a>
-  </nav>
+  <nav class="topnav" data-page="web"></nav>
   <main class="page">
     <header class="hero">
       <h1>일반 웹페이지에서 써보기</h1>
-      <p>서버가 세션마다 무작위 배열의 키패드를 만들고, 브라우저는 좌표만 암호화해 보냅니다. 입력창을 누르면 키패드가 열립니다. 데스크톱은 마우스로, 모바일 브라우저는 터치로 사용하세요.</p>
+      <p>서버가 세션마다 무작위 배열의 키패드를 만들고, 브라우저는 좌표만 암호화해 보냅니다. 입력창을 누르면 키패드가 열립니다. 데스크톱은 마우스로, 모바일 브라우저는 터치로 사용하세요. QWERTY 키패드는 지구본 키로 한국어 ↔ 영어를 바꿉니다.</p>
     </header>
     <div class="grid">
       <form class="card" id="login" autocomplete="off">
         <h2>로그인</h2>
+        <fieldset class="settings">
+          <legend>키패드 설정 <span class="muted">— 바꾸면 새 세션으로 키패드가 바로 다시 열립니다</span></legend>
+          <div class="row">
+            <label class="inline">배열
+              <select id="layout">
+                <option value="shuffle">shuffle (기본: 줄 안에서 섞기)</option>
+                <option value="full">full (전체 섞기)</option>
+                <option value="fixed">fixed (표준 배열, 경고: 좌표로 추론 가능)</option>
+              </select>
+            </label>
+            <label class="inline">스타일
+              <select id="style">
+                <option value="auto">auto (기기에 맞춤)</option>
+                <option value="ios">iOS</option>
+                <option value="material">Material</option>
+              </select>
+            </label>
+            <label class="inline">언어
+              <select id="langs">
+                <option value="en,ko">영어 + 한국어 (기본)</option>
+                <option value="ko,en">한국어 + 영어 (한국어 먼저)</option>
+                <option value="en">영어만</option>
+                <option value="ko">한국어만</option>
+              </select>
+            </label>
+          </div>
+          <div class="status-line" id="settings-status" aria-live="polite"></div>
+        </fieldset>
         <label for="pin">PIN (숫자 키패드)</label>
         <input id="pin" type="password" placeholder="••••••" aria-label="PIN">
-        <label for="password">비밀번호 (QWERTY)</label>
+        <label for="password">비밀번호 (QWERTY · 한/영)</label>
         <input id="password" type="password" placeholder="••••••••" aria-label="비밀번호">
-        <div class="row">
-          <label class="inline">배열
-            <select id="layout">
-              <option value="shuffle">shuffle (기본)</option>
-              <option value="full">full</option>
-              <option value="fixed">fixed (경고: 좌표로 추론 가능)</option>
-            </select>
-          </label>
-          <label class="inline">스타일
-            <select id="style">
-              <option value="auto">auto</option>
-              <option value="ios">iOS</option>
-              <option value="material">Material</option>
-            </select>
-          </label>
-          <span class="kid" id="kid"></span>
-        </div>
         <button class="primary" type="submit">로그인</button>
         <div class="status" id="status" role="status"></div>
         <div id="result"></div>
+        <div class="kid-row"><span class="kid" id="kid"></span></div>
       </form>
       <aside class="card explain">
         <h2>무슨 일이 일어나나</h2>
         <ol>
-          <li>브라우저가 임시 X25519 키를 만들고 <code>POST /keypad/session</code>에 보냅니다.</li>
+          <li>브라우저가 임시 X25519 키를 만들고 <code>POST /keypad/session</code>에 보냅니다. 원하는 언어(<code>opts.langs</code>)도 이때 전달합니다.</li>
           <li>서버가 이 세션만의 배열을 만들고, 글자 <em>이미지</em>와 키 사각형만 암호화해 내려줍니다. 문자 코드는 없습니다.</li>
           <li>키를 누르면 좌표만 기록됩니다. 로그인 버튼은 좌표 묶음을 암호화한 페이로드를 <code>POST /login</code>으로 보냅니다.</li>
-          <li>서버 SDK가 좌표를 글자로 복원하고 세션을 파기합니다. 같은 페이로드를 다시 보내면 <code>410</code>입니다.</li>
+          <li>서버 SDK가 좌표를 글자로 복원하고, 한글 자모는 음절로 조합한 뒤 세션을 파기합니다. 같은 페이로드를 다시 보내면 <code>410</code>입니다.</li>
         </ol>
-        <p class="muted">배열을 <b>fixed</b>로 바꾸면 키보드는 표준 QWERTY가 되지만 좌표만으로 글자를 알 수 있어 서버가 경고를 남깁니다.</p>
+        <p class="muted">배열을 <b>fixed</b>로 바꾸면 표준 QWERTY·두벌식이 되지만 좌표만으로 글자를 알 수 있어 서버가 경고를 남깁니다. <b>shuffle</b>과 <b>full</b>은 둘 다 무작위라 겉으로는 비슷합니다. full은 줄을 넘나들며 섞습니다.</p>
+        <p class="muted">스타일 <b>auto</b>는 Mac·iPhone에서 iOS, 그 외에서 Material을 고릅니다. Material은 그림자 없는 키, 더 둥근 모서리, <code>?123</code> 라벨로 구분됩니다.</p>
+        <p class="muted">언어는 서버 옵션(<code>languages</code>)이 우선하고, 없으면 클라이언트 요청, 그것도 없으면 영어 + 한국어입니다. 두 개 이상이면 지구본 키가 생깁니다.</p>
       </aside>
     </div>
   </main>
   <script src="dist/secure-keypad.iife.js"></script>
   <script src="config.js"></script>
   <script src="demo.js"></script>
+  <script src="nav.js"></script>
   <script>
     (async () => {
       const layoutSel = document.getElementById("layout");
       const styleSel = document.getElementById("style");
-      if (SkpDemo.qs.get("layout")) layoutSel.value = SkpDemo.qs.get("layout");
-      if (SkpDemo.qs.get("style")) styleSel.value = SkpDemo.qs.get("style");
+      const langsSel = document.getElementById("langs");
       const status = document.getElementById("status");
       const result = document.getElementById("result");
-      let demo = await SkpDemo.setup({
+      const settingsStatus = document.getElementById("settings-status");
+      const { qs } = SkpDemo;
+      if (qs.get("layout")) layoutSel.value = qs.get("layout");
+      if (qs.get("style")) styleSel.value = qs.get("style");
+      if (qs.get("langs") && [...langsSel.options].some((o) => o.value === qs.get("langs"))) langsSel.value = qs.get("langs");
+
+      let demo = null;
+      const currentLang = { code: null };
+      const showSettings = () => {
+        if (!demo) return;
+        const langNote = currentLang.code ? ` · 지금 ${SkpDemo.LANGUAGE_NAMES[currentLang.code] || currentLang.code}` : "";
+        settingsStatus.textContent = demo.describe() + langNote;
+      };
+      const syncUrl = () => {
+        const u = new URL(location.href);
+        u.searchParams.set("layout", layoutSel.value);
+        u.searchParams.set("style", styleSel.value);
+        u.searchParams.set("langs", langsSel.value);
+        history.replaceState(null, "", u);
+      };
+      // listeners first, so a change made while the backend is still loading is not lost
+      const onChange = async () => {
+        syncUrl();
+        if (!demo) return; // setup() below reads the current select values
+        status.textContent = "";
+        currentLang.code = null;
+        try {
+          await demo.apply({ layout: layoutSel.value, style: styleSel.value, languages: langsSel.value });
+        } catch (err) {
+          status.textContent = err.message;
+        }
+        showSettings();
+      };
+      layoutSel.addEventListener("change", onChange);
+      styleSel.addEventListener("change", onChange);
+      langsSel.addEventListener("change", onChange);
+
+      demo = await SkpDemo.setup({
         pinEl: document.getElementById("pin"),
         passwordEl: document.getElementById("password"),
         layout: () => layoutSel.value,
         style: styleSel.value,
+        languages: langsSel.value,
         onStatus: (m) => (status.textContent = m),
+        onLang: (code) => {
+          currentLang.code = code;
+          showSettings();
+        },
       });
-      document.getElementById("kid").textContent = "kid " + demo.kid;
+      document.getElementById("kid").textContent = "server kid " + demo.kid + (demo.wasm ? " (in-page wasm)" : "");
+      showSettings();
       // E2E hooks: rects and roles only, never characters
-      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx };
-      layoutSel.addEventListener("change", () => demo.reset());
-      styleSel.addEventListener("change", () => {
-        const u = new URL(location.href);
-        u.searchParams.set("style", styleSel.value);
-        u.searchParams.set("layout", layoutSel.value);
-        location.href = u;
-      });
+      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx, demo };
       document.getElementById("login").addEventListener("submit", async (e) => {
         e.preventDefault();
         status.textContent = "";

@@ -35,6 +35,10 @@ static void state_pack(const skp_state *st, uint8_t *p) {
     memcpy(p + 74, st->k_s2c, 32);
     memcpy(p + 106, st->k_c2s, 32);
     put64(p + 138, st->s2c_ctr);
+    p[146] = (uint8_t)st->nlangs;
+    memset(p + 147, 0, 3);
+    for (int i = 0; i < st->nlangs && i < SKP_MAX_LANGS; i++)
+        p[147 + i] = st->langs[i];
     for (int i = 0; i < st->ngens; i++) {
         uint8_t *g = p + SKP_STATE_HEAD + (size_t)i * SKP_STATE_GEN;
         memcpy(g, st->gens[i].seed, 32);
@@ -65,6 +69,22 @@ static int state_unpack(skp_state *st, const uint8_t *p, size_t len) {
     memcpy(st->k_s2c, p + 74, 32);
     memcpy(st->k_c2s, p + 106, 32);
     st->s2c_ctr = get64(p + 138);
+    st->nlangs = p[146];
+    if (st->nlangs > SKP_MAX_LANGS)
+        return SKP_ERR_TAMPERED;
+    for (int i = 0; i < SKP_MAX_LANGS; i++) {
+        uint8_t id = p[147 + i];
+        if (i < st->nlangs) {
+            if (!skp_lang_code(id))
+                return SKP_ERR_TAMPERED;
+            for (int k = 0; k < i; k++)
+                if (st->langs[k] == id)
+                    return SKP_ERR_TAMPERED;
+            st->langs[i] = id;
+        } else if (id != 0) {
+            return SKP_ERR_TAMPERED;
+        }
+    }
     for (int i = 0; i < n; i++) {
         const uint8_t *g = p + SKP_STATE_HEAD + (size_t)i * SKP_STATE_GEN;
         memcpy(st->gens[i].seed, g, 32);
@@ -74,6 +94,8 @@ static int state_unpack(skp_state *st, const uint8_t *p, size_t len) {
     }
     if ((st->type != SKP_TYPE_QWERTY && st->type != SKP_TYPE_NUMBER) || st->policy > 2 || st->blank > 1 ||
         (st->style != SKP_STYLE_IOS && st->style != SKP_STYLE_MATERIAL) || st->max_len == 0)
+        return SKP_ERR_TAMPERED;
+    if ((st->type == SKP_TYPE_QWERTY && st->nlangs < 1) || (st->type == SKP_TYPE_NUMBER && st->nlangs != 0))
         return SKP_ERR_TAMPERED;
     return SKP_OK;
 }
@@ -145,6 +167,7 @@ int skp_state_unseal(const skp_ctx *ctx, const uint8_t *sealed, size_t len, skp_
     sodium_free(pt);
     if (rc)
         skp_state_wipe(out);
+    sodium_stackzero(8192);
     return rc;
 }
 

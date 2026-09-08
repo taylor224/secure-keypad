@@ -133,6 +133,8 @@ int skp_init(skp_ctx **out, const skp_config *cfg) {
     rc = skp_font_load(&ctx->fonts[0], cfg->font_ios_path, skp_font_inter, skp_font_inter_len);
     if (rc == SKP_OK)
         rc = skp_font_load(&ctx->fonts[1], cfg->font_material_path, skp_font_roboto, skp_font_roboto_len);
+    if (rc == SKP_OK)
+        rc = skp_font_load(&ctx->fonts[2], cfg->font_fallback_path, skp_font_hangul, skp_font_hangul_len);
     if (rc) {
         skp_free(ctx);
         return rc;
@@ -156,6 +158,7 @@ void skp_free(skp_ctx *ctx) {
     }
     skp_font_free(&ctx->fonts[0]);
     skp_font_free(&ctx->fonts[1]);
+    skp_font_free(&ctx->fonts[2]);
     skp_glyph_cache_free(ctx->glyphs);
     sodium_memzero(ctx, sizeof *ctx);
     free(ctx);

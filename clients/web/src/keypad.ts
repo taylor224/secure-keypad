@@ -2,7 +2,7 @@
  * Keypad UI: shadow-DOM bottom sheet with a canvas surface, pointer handling, the shift/mode state
  * machine and press feedback. It knows rects and roles, never characters.
  */
-import { hitTest, type KeyRect, type Layer, type LayoutSet, type Mode, type Style, type Tap } from "./protocol";
+import { hitTest, LANGUAGE_NAMES, type KeyRect, type Layer, type LayoutSet, type Style, type Tap } from "./protocol";
 import { drawKeypad, drawPopup, popupGeometry, tintSprite, type DrawState, type Sprites } from "./render";
 import type { ThemeTokens } from "./theme";
 
@@ -16,10 +16,14 @@ export interface KeypadUIOptions {
   safeAreaBottom: number;
   accessory: boolean;
   doneLabel: string;
+  /** space-bar labels per language code; falls back to LANGUAGE_NAMES, then the code */
+  languageNames: Record<string, string>;
   desktop: boolean;
   onTap: (tap: Tap) => void;
   onBackspace: () => void;
   onDone: () => void;
+  /** the user switched keyboard language (code from the layout's `langs`) */
+  onLang?: (lang: string) => void;
   onOutsidePress?: () => void;
 }
 
@@ -72,6 +76,8 @@ export class KeypadUI {
   private spriteGen = 0;
   private base: Base = "letters";
   private shift: "off" | "once" | "caps" = "off";
+  /** current language code (from the layout's `langs`); kept across sessions while the server offers it */
+  private lang: string | null = null;
   private pressed = -1;
   private pointerId: number | null = null;
   private lastShiftTap = 0;
@@ -176,6 +182,8 @@ export class KeypadUI {
   async setLayout(layout: LayoutSet, tiles: Uint8Array, popups: Uint8Array): Promise<void> {
     this.layout = layout;
     this.base = layout.type === "number" ? "number" : this.base === "number" ? "letters" : this.base;
+    const langs = layout.langs ?? [];
+    if (!this.lang || !langs.includes(this.lang)) this.lang = langs[0] ?? null;
     this.canvas.width = layout.w;
     this.canvas.height = layout.h;
     this.canvas.style.width = `${layout.w / this.dpr}px`;
@@ -213,16 +221,50 @@ export class KeypadUI {
     this.host.remove();
   }
 
+  /** Current language code, or null for number pads. */
+  get language(): string | null {
+    return this.lang;
+  }
+
+  /** Switches to a language offered by the current layout; returns false if it is not installed. */
+  setLanguage(code: string): boolean {
+    if (!this.layout?.langs?.includes(code)) return false;
+    this.lang = code;
+    this.base = "letters";
+    this.shift = "off";
+    this.draw();
+    return true;
+  }
+
   currentLayer(): Layer | null {
     if (!this.layout) return null;
-    const mode: Mode = this.base === "number" ? "number" : this.base === "letters" ? (this.shift === "off" ? "lower" : "upper") : this.base;
-    return this.layout.layouts.find((l) => l.mode === mode) ?? this.layout.layouts[0] ?? null;
+    const layouts = this.layout.layouts;
+    if (this.base === "number") return layouts.find((l) => l.mode === "number") ?? layouts[0] ?? null;
+    if (this.base === "sym1" || this.base === "sym2") {
+      const mode = this.base;
+      return layouts.find((l) => l.mode === mode) ?? layouts[0] ?? null;
+    }
+    const mode = this.shift === "off" ? "lower" : "upper";
+    const lang = this.lang;
+    return layouts.find((l) => l.mode === mode && (lang === null || l.lang === lang)) ?? layouts.find((l) => l.mode === mode) ?? layouts[0] ?? null;
+  }
+
+  private spaceLabel(): string | undefined {
+    const langs = this.layout?.langs ?? [];
+    if (langs.length < 2 || !this.lang) return undefined;
+    return this.opts.languageNames[this.lang] ?? LANGUAGE_NAMES[this.lang] ?? this.lang.toUpperCase();
   }
 
   private draw(): void {
     const layer = this.currentLayer();
     if (!this.layout || !layer) return;
-    const state: DrawState = { pressed: this.pressed, shift: this.shift, popupCovers: this.popup.style.display === "block", doneLabel: this.opts.doneLabel };
+    const state: DrawState = {
+      pressed: this.pressed,
+      shift: this.shift,
+      popupCovers: this.popup.style.display === "block",
+      doneLabel: this.opts.doneLabel,
+      spaceLabel: this.spaceLabel(),
+    };
     drawKeypad({ ctx: this.ctx, layout: this.layout, layer, sprites: this.sprites, theme: this.opts.theme, dpr: this.dpr, state });
   }
 
@@ -272,6 +314,11 @@ export class KeypadUI {
 
   private onDown = (e: PointerEvent): void => {
     if (this.pointerId !== null) return; // single touch
+    if (this.flashTimer) {
+      clearTimeout(this.flashTimer);
+      this.flashTimer = null;
+      this.pressed = -1;
+    }
     const layer = this.currentLayer();
     if (!layer) return;
     e.preventDefault();
@@ -337,6 +384,8 @@ export class KeypadUI {
     this.repeatInterval = null;
   }
 
+  private flashTimer: ReturnType<typeof setTimeout> | null = null;
+
   private release(): void {
     this.stopRepeat();
     if (this.pointerId !== null) {
@@ -347,12 +396,25 @@ export class KeypadUI {
       }
     }
     this.pointerId = null;
-    this.pressed = -1;
     this.hidePopup();
+    // keep the pressed colour for a moment so a quick click still shows feedback
+    if (this.pressed >= 0) {
+      const index = this.pressed;
+      if (this.flashTimer) clearTimeout(this.flashTimer);
+      this.flashTimer = setTimeout(() => {
+        this.flashTimer = null;
+        if (this.pressed === index && this.pointerId === null) {
+          this.pressed = -1;
+          this.draw();
+        }
+      }, 110);
+    }
     this.draw();
   }
 
   private commit(layer: Layer, key: KeyRect): void {
+    // caps lock needs two consecutive shift taps: any other key resets the double-tap window
+    if (key.role !== "shift") this.lastShiftTap = 0;
     switch (key.role) {
       case "char":
       case "space": {
@@ -381,6 +443,17 @@ export class KeypadUI {
       case "mode_sym2":
         this.base = "sym2";
         break;
+      case "lang": {
+        const langs = this.layout?.langs ?? [];
+        if (langs.length >= 2) {
+          const i = this.lang ? langs.indexOf(this.lang) : -1;
+          this.lang = langs[(i + 1) % langs.length];
+          this.base = "letters";
+          this.shift = "off";
+          this.opts.onLang?.(this.lang);
+        }
+        break;
+      }
       case "done":
         this.opts.onDone();
         break;

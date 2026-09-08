@@ -32,7 +32,8 @@ skp.key_id          # 8-hex-char key id
 response = skp.create_session(client_request, ctx=attempt_id,
                               layout="shuffle",   # "shuffle" | "full" | "fixed"
                               blank="fixed",      # number pad: "fixed" | "random"
-                              ttl=180, max_len=None)
+                              ttl=180, max_len=None,
+                              languages=None)     # ["ko", "en"], ["en"], "en,ko"; None → client's request, else en + ko
 response2 = skp.relayout(client_relayout_request)
 
 with skp.decrypt(client_payload, ctx=attempt_id) as secret:   # session consumed here
@@ -48,6 +49,9 @@ with skp.decrypt(client_payload, ctx=attempt_id) as secret:   # session consumed
   `SID_MISMATCH`, `BAD_REQUEST`, `UNSUPPORTED`, `BAD_KEY`, `IO`, `CRYPTO`, ...). A missing blob raises
   `SessionNotFound` (`.name == "SESSION_NOT_FOUND"`).
 - `keygen()` returns a fresh base64 master key.
+- Korean: the QWERTY keypad carries a 2-set jamo layout when `ko` is among the languages; `decrypt` returns
+  composed syllables (`spec/HANGUL.md`). `SecureKeypadServer(font_fallback_path=...)` replaces the embedded
+  Noto Sans KR subset used for the jamo labels.
 
 ## Wiping
 

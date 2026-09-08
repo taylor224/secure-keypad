@@ -20,6 +20,10 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
     var onTap: ((Tap) -> Void)?
     var onBackspace: (() -> Void)?
     var onDone: (() -> Void)?
+    /// The user switched keyboard language (code from the layout's `langs`).
+    var onLang: ((String) -> Void)?
+    /// Space-bar labels per language code; falls back to `keypadLanguageNames`, then the code.
+    public var languageNames: [String: String] = [:]
     /// Called when the view's width (in points) changed after layout, for relayout requests.
     var onWidthChange: ((CGFloat) -> Void)?
 
@@ -35,9 +39,11 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
     private var shift: ShiftState = .off
     private var lastShiftTap: TimeInterval = 0
     private var mode: KeypadMode = .lower
+    /// Current language code; kept across sessions while the server keeps offering it.
+    public private(set) var language: String?
 
-    private var containers: [KeypadMode: UIView] = [:]
-    private var keyViews: [KeypadMode: [KeyView]] = [:]
+    private var containers: [Int: UIView] = [:]   // by layout id
+    private var keyViews: [Int: [KeyView]] = [:]
     private var activeTouch: UITouch?
     private var activeKey: KeyView?
     private var popup: PopupView?
@@ -96,8 +102,24 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
         theme = .ios(dark: dark)
         backgroundColor = theme.trayBackground
         for views in keyViews.values {
-            for kv in views { kv.apply(theme: theme, tiles: tiles) }
+            for kv in views { kv.apply(theme: theme, tiles: tiles, spaceLabel: spaceLabel()) }
         }
+    }
+
+    /// Label of the space bar: the current language's name when several languages are installed.
+    private func spaceLabel() -> String {
+        guard let set = layoutSet, set.languages.count >= 2, let code = language else { return "space" }
+        return languageNames[code] ?? keypadLanguageNames[code] ?? code.uppercased()
+    }
+
+    /// Switches to one of the installed languages; returns false when the layout does not offer it.
+    @discardableResult
+    public func setLanguage(_ code: String) -> Bool {
+        guard let set = layoutSet, set.languages.contains(code) else { return false }
+        language = code
+        shift = .off
+        showMode(.lower)
+        return true
     }
 
     public override func traitCollectionDidChange(_ previous: UITraitCollection?) {
@@ -132,7 +154,14 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
         containers = [:]
         keyViews = [:]
         guard let set = layoutSet else { return }
+        let langs = set.languages
+        if let current = language, langs.contains(current) {
+            language = current
+        } else {
+            language = langs.first
+        }
         let scale = pixelScale
+        let label = spaceLabel()
         for layout in set.layouts {
             let container = UIView(frame: bounds)
             container.isAccessibilityElement = false
@@ -142,32 +171,41 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
                 let kv = KeyView(key: key, layoutID: layout.id)
                 kv.frame = CGRect(x: CGFloat(key.x) / scale, y: CGFloat(key.y) / scale,
                                   width: CGFloat(key.w) / scale, height: CGFloat(key.h) / scale)
-                kv.apply(theme: theme, tiles: tiles)
+                kv.apply(theme: theme, tiles: tiles, spaceLabel: label)
                 container.addSubview(kv)
                 views.append(kv)
             }
-            containers[layout.mode] = container
-            keyViews[layout.mode] = views
+            containers[layout.id] = container
+            keyViews[layout.id] = views
             insertSubview(container, belowSubview: coverView)
         }
         if set.type == .number {
             mode = .number
-        } else if mode == .number || set.layout(for: mode) == nil {
+        } else if mode == .number || currentLayout() == nil {
             mode = .lower
         }
         showMode(mode)
     }
 
+    /// The layer shown for the current mode and language.
+    func currentLayout() -> KeypadLayout? {
+        guard let set = layoutSet else { return nil }
+        let letters = mode == .lower || mode == .upper
+        return set.layout(for: mode, lang: letters ? language : nil)
+    }
+
     private func showMode(_ m: KeypadMode) {
         mode = m
-        for (k, c) in containers { c.isHidden = k != m }
+        let current = currentLayout()?.id
+        for (id, c) in containers { c.isHidden = id != current }
         updateShiftKeys()
     }
 
     private func updateShiftKeys() {
         let on = shift != .off
-        for kv in keyViews[.upper] ?? [] where kv.key.role == .shift { kv.setShift(on: on, caps: shift == .caps) }
-        for kv in keyViews[.lower] ?? [] where kv.key.role == .shift { kv.setShift(on: on, caps: shift == .caps) }
+        for views in keyViews.values {
+            for kv in views where kv.key.role == .shift { kv.setShift(on: on, caps: shift == .caps) }
+        }
     }
 
     public override func layoutSubviews() {
@@ -202,10 +240,10 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
     }
 
     private func keyView(at point: CGPoint) -> (KeyView, Tap)? {
-        guard coverView.isHidden, let set = layoutSet, let layout = set.layout(for: mode) else { return nil }
+        guard coverView.isHidden, let set = layoutSet, let layout = currentLayout() else { return nil }
         let p = Self.deviceTap(from: point, scale: pixelScale, width: set.w, height: set.h)
         guard let key = layout.hitTest(x: p.x, y: p.y), key.role != .blank,
-              let kv = keyViews[mode]?.first(where: { $0.key == key }) else { return nil }
+              let kv = keyViews[layout.id]?.first(where: { $0.key == key }) else { return nil }
         return (kv, Tap(layoutID: layout.id, x: p.x, y: p.y))
     }
 
@@ -268,6 +306,7 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
         activeKey = nil
         activeTouch = nil
         guard let (kv, tap) = hit else { return }
+        if kv.key.role != .shift { lastShiftTap = 0 } // caps lock needs two consecutive shift taps
         switch kv.key.role {
         case .char, .space:
             onTap?(tap)
@@ -292,6 +331,16 @@ public final class SecureKeypadInputView: UIInputView, UIInputViewAudioFeedback 
             showMode(.sym1)
         case .modeSym2:
             showMode(.sym2)
+        case .lang:
+            let langs = layoutSet?.languages ?? []
+            if langs.count >= 2 {
+                let i = language.flatMap { langs.firstIndex(of: $0) } ?? -1
+                let next = langs[(i + 1) % langs.count]
+                language = next
+                shift = .off
+                showMode(.lower)
+                onLang?(next)
+            }
         case .done:
             onDone?()
         case .blank:
@@ -394,7 +443,7 @@ final class KeyView: UIView {
         }
     }
 
-    func apply(theme: KeypadTheme, tiles: SpriteSheet?) {
+    func apply(theme: KeypadTheme, tiles: SpriteSheet?, spaceLabel: String = "space") {
         self.theme = theme
         layer.cornerRadius = theme.cornerRadius
         layer.shadowColor = theme.shadow.cgColor
@@ -412,7 +461,7 @@ final class KeyView: UIView {
                 glyph.contentsScale = UIScreen.main.scale
             }
         case .space:
-            label.text = "space"
+            label.text = spaceLabel
             label.isHidden = false
         case .shift:
             icon.image = UIImage(systemName: shiftOn ? (caps ? "capslock.fill" : "shift.fill") : "shift")
@@ -432,6 +481,9 @@ final class KeyView: UIView {
         case .done:
             label.text = "Done"
             label.isHidden = false
+        case .lang:
+            icon.image = UIImage(systemName: "globe")
+            icon.isHidden = false
         case .blank:
             break
         }

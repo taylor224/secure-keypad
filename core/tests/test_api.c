@@ -21,7 +21,7 @@ static int tap_for(const skp_layout *l, int gen, uint32_t cp, int32_t out[3]) {
         for (int k = 0; k < l->layers[i].nkeys; k++) {
             const skp_key *key = &l->layers[i].keys[k];
             if ((key->role == SKP_ROLE_CHAR || key->role == SKP_ROLE_SPACE) && key->cp == cp) {
-                out[0] = (gen << 3) | l->layers[i].mode;
+                out[0] = (gen << 3) | i;
                 out[1] = key->x + key->w / 2;
                 out[2] = key->y + key->h / 2;
                 return 1;
@@ -112,7 +112,7 @@ static void test_roundtrip(void) {
 
     char req[512];
     make_request(req, sizeof req, REQ_Q, c_sk);
-    skp_session_opts opts = {"attempt-1", "shuffle", NULL, 0, 0};
+    skp_session_opts opts = {"attempt-1", "shuffle", NULL, 0, 0, "en"};
     skp_buf resp = {0}, sealed = {0};
     int rc = skp_session_create(ctx, req, 0, &opts, &resp, &sealed);
     CHECK(rc == SKP_OK, "create: %s", skp_strerror(rc));
@@ -129,8 +129,9 @@ static void test_roundtrip(void) {
     CHECK(inner && jint(inner, "maxLen") == 16 && jint(inner, "w") == 1170 && jint(inner, "h") == 648, "inner json");
     CHECK(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(inner, "layouts")) == 4, "4 layers");
     /* rebuild the server layout from the injected seed to find where characters are */
+    static const uint8_t EN[1] = {SKP_LANG_EN};
     skp_layout *l = malloc(sizeof *l);
-    CHECK(skp_layout_build(l, SKP_TYPE_QWERTY, SKP_POLICY_SHUFFLE, SKP_BLANK_FIXED, SKP_STYLE_IOS, 1170, 3000, seed) == SKP_OK, "layout");
+    CHECK(skp_layout_build(l, SKP_TYPE_QWERTY, SKP_POLICY_SHUFFLE, SKP_BLANK_FIXED, SKP_STYLE_IOS, EN, 1, 1170, 3000, seed) == SKP_OK, "layout");
     const char *text = "Pw 9!";
     int32_t taps[8][3];
     size_t n = 0;
@@ -147,7 +148,7 @@ static void test_roundtrip(void) {
     /* wrong ctx */
     CHECK(skp_session_decrypt(ctx, sealed.data, sealed.len, payload, 0, "attempt-2", &s) == SKP_ERR_CTX_MISMATCH, "ctx mismatch");
     /* a tap on shift is rejected */
-    const skp_layer *lower = skp_layout_layer(l, SKP_MODE_LOWER);
+    const skp_layer *lower = skp_layout_find(l, SKP_MODE_LOWER, SKP_LANG_EN);
     for (int k = 0; k < lower->nkeys; k++)
         if (lower->keys[k].role == SKP_ROLE_SHIFT) {
             int32_t bad[1][3] = {{0, lower->keys[k].x + 2, lower->keys[k].y + 2}};
@@ -164,7 +165,7 @@ static void test_roundtrip(void) {
     CHECK(rc == SKP_OK, "relayout: %s", skp_strerror(rc));
     if (rc == SKP_OK) {
         skp_layout *l2 = malloc(sizeof *l2);
-        skp_layout_build(l2, SKP_TYPE_QWERTY, SKP_POLICY_SHUFFLE, SKP_BLANK_FIXED, SKP_STYLE_IOS, 2532, 3000, seed);
+        skp_layout_build(l2, SKP_TYPE_QWERTY, SKP_POLICY_SHUFFLE, SKP_BLANK_FIXED, SKP_STYLE_IOS, EN, 1, 2532, 3000, seed);
         int32_t taps2[8][3];
         size_t n2 = n;
         memcpy(taps2, taps, sizeof(int32_t) * 3 * n);
@@ -196,8 +197,12 @@ static void test_roundtrip(void) {
     CHECK(skp_session_decrypt(ctx, sealed.data, sealed.len, "{}", 0, NULL, &s) == SKP_ERR_BAD_REQUEST, "bad payload json");
     CHECK(skp_session_decrypt(ctx, sealed.data, sealed.len - 3, payload, 0, "attempt-1", &s) == SKP_ERR_BAD_MAC, "truncated blob");
     CHECK(skp_session_create(ctx, "{\"v\":2}", 0, NULL, &rresp, &sealed2) == SKP_ERR_BAD_REQUEST, "bad request");
-    skp_session_opts bad_opts = {NULL, "diagonal", NULL, 0, 0};
+    skp_session_opts bad_opts = {NULL, "diagonal", NULL, 0, 0, NULL};
     CHECK(skp_session_create(ctx, req, 0, &bad_opts, &rresp, &sealed2) == SKP_ERR_UNSUPPORTED, "bad layout option");
+    skp_session_opts bad_langs = {NULL, NULL, NULL, 0, 0, "en,xx"};
+    CHECK(skp_session_create(ctx, req, 0, &bad_langs, &rresp, &sealed2) == SKP_ERR_UNSUPPORTED, "unknown language");
+    skp_session_opts dup_langs = {NULL, NULL, NULL, 0, 0, "ko,ko"};
+    CHECK(skp_session_create(ctx, req, 0, &dup_langs, &rresp, &sealed2) == SKP_ERR_UNSUPPORTED, "duplicate language");
 
     free(payload);
     cJSON_Delete(inner);
@@ -221,7 +226,7 @@ static void test_number_pad_and_limits(void) {
     uint8_t c_sk[32] = {9};
     char req[512];
     make_request(req, sizeof req, REQ_N, c_sk);
-    skp_session_opts opts = {NULL, NULL, "random", 0, 0};
+    skp_session_opts opts = {NULL, NULL, "random", 0, 0, "ko"}; /* languages are ignored for number pads */
     skp_buf resp = {0}, sealed = {0};
     CHECK(skp_session_create(ctx, req, 0, &opts, &resp, &sealed) == SKP_OK, "create number");
     test_client cl;
@@ -241,12 +246,13 @@ static void test_number_pad_and_limits(void) {
     }
     CHECK(chars == 10 && blanks == 1 && bs == 1, "number pad roles %d %d %d", chars, blanks, bs);
     CHECK(jint(cJSON_GetObjectItemCaseSensitive(inner, "tile"), "count") == 10, "tile count");
+    CHECK(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(inner, "langs")) == 0, "number pad has no langs");
     cJSON_Delete(inner);
     client_free(&cl);
     skp_buf_free(&resp);
     skp_buf_free(&sealed);
     /* fixed layout warning path */
-    skp_session_opts fixed = {NULL, "fixed", NULL, 0, 0};
+    skp_session_opts fixed = {NULL, "fixed", NULL, 0, 0, NULL};
     make_request(req, sizeof req, REQ_Q, c_sk);
     CHECK(skp_session_create(ctx, req, 0, &fixed, &resp, &sealed) == SKP_OK, "create fixed");
     skp_buf_free(&resp);
@@ -254,10 +260,162 @@ static void test_number_pad_and_limits(void) {
     skp_free(ctx);
 }
 
+/* Korean + English: the lang key, both letter layers per language, and server-side Hangul composition. */
+static void test_languages(void) {
+    printf("languages: en+ko default, ko only, client request, composition\n");
+    skp_config cfg = {0};
+    cfg.master_key = "0f1e2d3c4b5a69788796a5b4c3d2e1f0f0e1d2c3b4a5968778695a4b3c2d1e0f";
+    skp_ctx *ctx = NULL;
+    CHECK(skp_init(&ctx, &cfg) == SKP_OK, "init");
+    uint8_t seed[32];
+    randombytes_buf(seed, 32);
+    skp_test_hooks h = {NULL, NULL, seed, NULL, 0, 0};
+    skp_test_set_hooks(&h);
+    uint8_t c_sk[32] = {11};
+    char req[512];
+    make_request(req, sizeof req, REQ_Q, c_sk);
+    /* default: en + ko, six layers, a lang key on every qwerty layer */
+    skp_buf resp = {0}, sealed = {0};
+    int rc = skp_session_create(ctx, req, 0, NULL, &resp, &sealed);
+    CHECK(rc == SKP_OK, "create default: %s", skp_strerror(rc));
+    test_client cl;
+    CHECK(client_open(&cl, (const char *)resp.data, c_sk, NULL) == 0, "open");
+    cJSON *inner = cJSON_Parse(cl.inner_json);
+    const cJSON *langs = cJSON_GetObjectItemCaseSensitive(inner, "langs");
+    CHECK(cJSON_GetArraySize(langs) == 2 && !strcmp(cJSON_GetArrayItem(langs, 0)->valuestring, "en") &&
+              !strcmp(cJSON_GetArrayItem(langs, 1)->valuestring, "ko"),
+          "default langs en,ko");
+    const cJSON *layouts = cJSON_GetObjectItemCaseSensitive(inner, "layouts");
+    CHECK(cJSON_GetArraySize(layouts) == 6, "6 layers");
+    int lang_keys = 0, i = 0;
+    const cJSON *lo;
+    cJSON_ArrayForEach(lo, layouts) {
+        CHECK(jint(lo, "id") == i, "slot id %d", i);
+        const char *lang = jstr(lo, "lang"), *mode = jstr(lo, "mode");
+        if (i < 2)
+            CHECK(lang && !strcmp(lang, "en") && !strcmp(mode, i == 0 ? "lower" : "upper"), "en layers");
+        else if (i < 4)
+            CHECK(lang && !strcmp(lang, "ko") && !strcmp(mode, i == 2 ? "lower" : "upper"), "ko layers");
+        else
+            CHECK(!lang && !strcmp(mode, i == 4 ? "sym1" : "sym2"), "symbol layers");
+        const cJSON *k;
+        int has_lang = 0;
+        cJSON_ArrayForEach(k, cJSON_GetObjectItemCaseSensitive(lo, "keys")) has_lang += !strcmp(jstr(k, "role"), "lang");
+        lang_keys += has_lang;
+        i++;
+    }
+    CHECK(lang_keys == 6, "lang key on every layer (%d)", lang_keys);
+    CHECK(jint(cJSON_GetObjectItemCaseSensitive(inner, "tile"), "count") == 154, "tile count 2×52 + 50");
+    CHECK(cl.tiles_len > 100, "sprites rendered with Hangul glyphs");
+    /* type "한글 Pw" across the Korean and English layers */
+    skp_layout *l = malloc(sizeof *l);
+    static const uint8_t ENKO[2] = {SKP_LANG_EN, SKP_LANG_KO};
+    CHECK(skp_layout_build(l, SKP_TYPE_QWERTY, SKP_POLICY_SHUFFLE, SKP_BLANK_FIXED, SKP_STYLE_IOS, ENKO, 2, 1170, 3000, seed) == SKP_OK, "layout");
+    const uint32_t jamo[] = {0x314E, 0x314F, 0x3134, 0x3131, 0x3161, 0x3139, ' ', 'P', 'w'};
+    int32_t taps[16][3];
+    size_t n = 0;
+    for (size_t j = 0; j < sizeof jamo / sizeof jamo[0]; j++)
+        CHECK(tap_for(l, 0, jamo[j], taps[n++]), "tap for U+%04X", jamo[j]);
+    char *payload = client_build_payload(&cl, 16, taps, n);
+    skp_secret *s = NULL;
+    rc = skp_session_decrypt(ctx, sealed.data, sealed.len, payload, 0, NULL, &s);
+    CHECK(rc == SKP_OK, "decrypt: %s", skp_strerror(rc));
+    if (s) {
+        const char *want = "\xed\x95\x9c\xea\xb8\x80 Pw"; /* 한글 Pw */
+        CHECK(skp_secret_len(s) == strlen(want) && !memcmp(skp_secret_bytes(s), want, strlen(want)), "composed text");
+        skp_secret_free(s);
+    }
+    /* a tap on the lang key is rejected like any control key */
+    const skp_layer *ko = skp_layout_find(l, SKP_MODE_LOWER, SKP_LANG_KO);
+    CHECK(ko != NULL, "ko layer");
+    for (int k = 0; ko && k < ko->nkeys; k++)
+        if (ko->keys[k].role == SKP_ROLE_LANG) {
+            int32_t bad[1][3] = {{2, ko->keys[k].x + 2, ko->keys[k].y + 2}};
+            char *bp = client_build_payload(&cl, 16, bad, 1);
+            CHECK(skp_session_decrypt(ctx, sealed.data, sealed.len, bp, 0, NULL, &s) == SKP_ERR_TAMPERED, "lang key tap");
+            free(bp);
+        }
+    /* an unknown slot is rejected */
+    {
+        int32_t bad[1][3] = {{6, 5, 5}};
+        char *bp = client_build_payload(&cl, 16, bad, 1);
+        CHECK(skp_session_decrypt(ctx, sealed.data, sealed.len, bp, 0, NULL, &s) == SKP_ERR_TAMPERED, "slot 6 tap");
+        free(bp);
+    }
+    free(payload);
+    cJSON_Delete(inner);
+    client_free(&cl);
+    sodium_memzero(l, sizeof *l);
+    free(l);
+    skp_buf_free(&resp);
+    skp_buf_free(&sealed);
+    /* ko only: no lang key, four layers; the client's request is honoured when the server sets nothing */
+    snprintf(req, sizeof req,
+             "{\"v\":1,\"kp\":\"%s\",\"type\":\"qwerty\",\"viewport\":{\"w\":390,\"dpr\":3,\"platform\":\"ios\"},\"opts\":{\"langs\":[\"ko\"]}}",
+             "");
+    {
+        uint8_t c_pk[32];
+        crypto_scalarmult_base(c_pk, c_sk);
+        char *b = NULL;
+        skp_b64_encode(&b, c_pk, 32, 0);
+        snprintf(req, sizeof req,
+                 "{\"v\":1,\"kp\":\"%s\",\"type\":\"qwerty\",\"viewport\":{\"w\":390,\"dpr\":3,\"platform\":\"ios\"},\"opts\":{\"langs\":[\"ko\"]}}",
+                 b);
+        free(b);
+    }
+    rc = skp_session_create(ctx, req, 0, NULL, &resp, &sealed);
+    CHECK(rc == SKP_OK, "create ko: %s", skp_strerror(rc));
+    CHECK(client_open(&cl, (const char *)resp.data, c_sk, NULL) == 0, "open ko");
+    inner = cJSON_Parse(cl.inner_json);
+    layouts = cJSON_GetObjectItemCaseSensitive(inner, "layouts");
+    CHECK(cJSON_GetArraySize(layouts) == 4, "ko only: 4 layers");
+    CHECK(!strcmp(jstr(cJSON_GetArrayItem(layouts, 0), "lang"), "ko"), "first layer ko");
+    lang_keys = 0;
+    {
+        const cJSON *k;
+        cJSON_ArrayForEach(k, cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(layouts, 0), "keys")) lang_keys += !strcmp(jstr(k, "role"), "lang");
+    }
+    CHECK(lang_keys == 0, "single language: no lang key");
+    cJSON_Delete(inner);
+    client_free(&cl);
+    skp_buf_free(&resp);
+    skp_buf_free(&sealed);
+    /* the server option overrides the client: "en" → 4 layers without Korean */
+    skp_session_opts en = {NULL, NULL, NULL, 0, 0, "en"};
+    rc = skp_session_create(ctx, req, 0, &en, &resp, &sealed);
+    CHECK(rc == SKP_OK, "create en override");
+    CHECK(client_open(&cl, (const char *)resp.data, c_sk, NULL) == 0, "open en");
+    inner = cJSON_Parse(cl.inner_json);
+    CHECK(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(inner, "langs")) == 1, "override langs");
+    CHECK(!strcmp(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(inner, "langs"), 0)->valuestring, "en"), "override en");
+    cJSON_Delete(inner);
+    client_free(&cl);
+    skp_buf_free(&resp);
+    skp_buf_free(&sealed);
+    /* bad client requests */
+    {
+        uint8_t c_pk[32];
+        crypto_scalarmult_base(c_pk, c_sk);
+        char *b = NULL;
+        skp_b64_encode(&b, c_pk, 32, 0);
+        const char *bad[] = {"[\"xx\"]", "[]", "[\"en\",\"en\"]", "\"en\"", "[\"en\",\"ko\",\"en\",\"ko\"]"};
+        for (size_t j = 0; j < sizeof bad / sizeof bad[0]; j++) {
+            snprintf(req, sizeof req,
+                     "{\"v\":1,\"kp\":\"%s\",\"type\":\"qwerty\",\"viewport\":{\"w\":390,\"dpr\":3,\"platform\":\"ios\"},\"opts\":{\"langs\":%s}}",
+                     b, bad[j]);
+            CHECK(skp_session_create(ctx, req, 0, NULL, &resp, &sealed) == SKP_ERR_BAD_REQUEST, "bad langs %s", bad[j]);
+        }
+        free(b);
+    }
+    skp_test_set_hooks(NULL);
+    skp_free(ctx);
+}
+
 int main(void) {
     test_key_loading();
     test_roundtrip();
     test_number_pad_and_limits();
+    test_languages();
     printf("%d failures\n", g_failures);
     return g_failures ? 1 : 0;
 }

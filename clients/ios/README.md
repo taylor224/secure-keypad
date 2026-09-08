@@ -38,6 +38,8 @@ var config = SecureKeypad.Config(
 config.relayoutURL = URL(string: "https://api.example.com/keypad/relayout")
 config.maxLen = 6
 config.haptics = true
+// QWERTY fields: config.languages = ["ko", "en"]   // Korean first; a globe key switches. Unset → server default (en, ko)
+// keypad.onLanguageChange = { code in … }; keypad.language; keypad.setLanguage("en")
 
 let keypad = SecureKeypad(config: config)
 keypad.attach(to: pinTextField)          // sets inputView / inputAccessoryView, secure entry

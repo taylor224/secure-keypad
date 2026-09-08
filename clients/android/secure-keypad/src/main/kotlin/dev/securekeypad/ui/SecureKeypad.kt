@@ -55,6 +55,14 @@ class SecureKeypad(context: Context, val config: Config) {
         val serverPublicKey: String? = null,
         val type: KeypadType = KeypadType.QWERTY,
         val maxLen: Int? = null,
+        /**
+         * Keyboard languages requested for QWERTY keypads, in switch order (the first is shown initially),
+         * e.g. listOf("en", "ko") or listOf("ko"). The server may override it; when nobody says anything it
+         * installs en + ko. With two or more languages the keypad shows a globe key that cycles them.
+         */
+        val languages: List<String>? = null,
+        /** Space-bar labels per language code when several are installed (default: English / 한국어). */
+        val languageNames: Map<String, String> = emptyMap(),
         val theme: ThemeMode = ThemeMode.AUTO,
         val haptics: Boolean = true,
         val sound: Boolean = true,
@@ -73,6 +81,10 @@ class SecureKeypad(context: Context, val config: Config) {
     var onDone: (() -> Unit)? = null
     /** Session fetch/relayout failed or the session expired; a new session is fetched automatically. */
     var onError: ((SecureKeypadException) -> Unit)? = null
+    /** The user switched keyboard language ("en", "ko", …). */
+    var onLanguageChange: ((String) -> Unit)? = null
+    /** Current keyboard language, null for number pads or before the first session. */
+    val language: String? get() = view.language
 
     private val activity: Activity = findActivity(context) ?: throw IllegalArgumentException("SecureKeypad needs an Activity context")
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -104,6 +116,8 @@ class SecureKeypad(context: Context, val config: Config) {
         view.sound = config.sound
         view.showPopup = config.showPopup
         view.doneLabel = config.doneLabel
+        view.languageNames = config.languageNames
+        view.onLanguageChange = { code -> onLanguageChange?.invoke(code) }
         when (config.theme) {
             ThemeMode.LIGHT -> view.theme = KeypadTheme.LIGHT
             ThemeMode.DARK -> view.theme = KeypadTheme.DARK
@@ -188,6 +202,9 @@ class SecureKeypad(context: Context, val config: Config) {
         return payload
     }
 
+    /** Switches to one of the installed languages; returns false when the current layout does not offer it. */
+    fun setLanguage(code: String): Boolean = view.setLanguage(code)
+
     /** Drops the current session and input and fetches a new one. */
     fun reset() {
         session?.cancel()
@@ -221,7 +238,7 @@ class SecureKeypad(context: Context, val config: Config) {
     private fun fetchSession(): Deferred<OpenedSession> = scope.async {
         val client = ClientSession.create()
         try {
-            val req = client.requestJson(config.type, viewport(panelWidth()), config.maxLen)
+            val req = client.requestJson(config.type, viewport(panelWidth()), config.maxLen, config.languages)
             val resp = withContext(Dispatchers.IO) { config.transport.post(config.sessionUrl, req, config.headers) }
             val opened = client.open(resp, serverKey)
             view.setSession(opened.initial)

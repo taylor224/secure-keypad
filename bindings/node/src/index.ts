@@ -165,7 +165,12 @@ export interface ServerOptions {
   maxLenCap?: number;
   fontIosPath?: string;
   fontMaterialPath?: string;
+  /** TrueType file replacing the embedded Noto Sans KR subset used for Hangul labels. */
+  fontFallbackPath?: string;
 }
+
+/** Keyboard languages of the QWERTY keypad: "en" (Latin), "ko" (Korean 2-set, composed server-side). */
+export type KeypadLanguage = "en" | "ko";
 
 export interface CreateSessionOptions {
   /** Binding context (user id, login attempt id). Must be passed again to `decrypt`. */
@@ -176,6 +181,11 @@ export interface CreateSessionOptions {
   blank?: "fixed" | "random";
   ttl?: number;
   maxLen?: number;
+  /**
+   * Languages of the QWERTY keypad in switch order (first is shown initially), e.g. ["en", "ko"] or ["ko"].
+   * Unset: the client's request (`opts.langs`) is honoured, else the default ["en", "ko"]. Ignored for number pads.
+   */
+  languages?: KeypadLanguage[] | string;
 }
 
 export interface DecryptOptions {
@@ -211,6 +221,7 @@ export class SecureKeypadServer {
           maxLenCap: options.maxLenCap,
           fontIosPath: options.fontIosPath,
           fontMaterialPath: options.fontMaterialPath,
+          fontFallbackPath: options.fontFallbackPath,
         }),
     );
     this.publicKey = this.native.publicKey();
@@ -219,7 +230,8 @@ export class SecureKeypadServer {
 
   /** Creates a session from the client's request JSON and stores the sealed state. Returns the response object. */
   async createSession(request: object | string, opts: CreateSessionOptions = {}): Promise<Record<string, unknown>> {
-    const { response, sealed } = wrap(() => this.native.createSession(toJson(request), opts));
+    const nativeOpts = { ...opts, languages: Array.isArray(opts.languages) ? opts.languages.join(",") : opts.languages };
+    const { response, sealed } = wrap(() => this.native.createSession(toJson(request), nativeOpts));
     const info = wrap(() => this.native.sessionInfo(sealed));
     const ttl = Math.max(1, info.expires - Math.floor(Date.now() / 1000));
     await this.store.put(info.sid, sealed, ttl);

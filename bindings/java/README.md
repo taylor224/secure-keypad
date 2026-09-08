@@ -50,6 +50,12 @@ try (Secret secret = skp.decrypt(payloadJson, loginAttemptId)) {
 `SecureKeypadServer.keygen()` returns a fresh base64 master key; `publicKey()` and `keyId()` give the
 values clients pin. The instance is thread safe; create one per process and `close()` it at shutdown.
 
+## Languages
+
+`SessionOptions.builder().languages("ko", "en")` fixes the QWERTY keyboard languages (`"en"`, `"ko"`; up to
+three, in switch order). Unset, the client's request (`opts.langs`) is honoured, else English + Korean.
+Korean jamo are composed into syllables by `decrypt` (`spec/HANGUL.md`).
+
 ## Sessions and the store
 
 Sealed session blobs (opaque ciphertext) are kept in a `SessionStore` between `createSession` and

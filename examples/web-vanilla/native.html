@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>secure-keypad · iOS / Android 네이티브 SDK 예제</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <nav class="topnav" data-page="native"></nav>
+  <main class="page native">
+    <header class="hero">
+      <h1>iOS · Android 네이티브 SDK 예제</h1>
+      <p>브라우저 시뮬레이션은 캔버스로 그린 모사입니다. 실제 앱에서는 아래 SDK가 시스템 키보드 자리에 네이티브 키패드를 띄우고, 서버 SDK가 좌표를 글자로 복원합니다. 두 SDK 모두 한국어(두벌식) + 영어 키패드와 지구본 키를 지원하며, 한글 조합은 서버에서 일어납니다.</p>
+    </header>
+
+    <section class="card" id="ios">
+      <h2>iOS — Swift Package <code>clients/ios</code></h2>
+      <table>
+        <tr><th>요구 사항</th><td>iOS 14+, CryptoKit · UIKit만 사용 (외부 의존성 없음)</td></tr>
+        <tr><th>설치</th><td>Xcode → File → Add Package Dependencies → 저장소 URL, 경로 <code>clients/ios</code>, 제품 <code>SecureKeypad</code></td></tr>
+        <tr><th>데모 실행</th><td><code>clients/ios/Examples/DemoViewController.swift</code>를 새 iOS 앱 타깃에 넣고 <code>sessionURL</code>을 예제 서버로 바꿉니다 (시뮬레이터: <code>http://localhost:3789</code>, <code>cd examples/server-node && npm run demo</code>).</td></tr>
+        <tr><th>테스트</th><td><code>cd clients/ios && swift test</code> — 벡터 재생, 시뮬레이터에서는 <code>xcodebuild test</code>로 키패드 뷰 테스트까지</td></tr>
+      </table>
+      <pre><code>import SecureKeypad
+
+var config = SecureKeypad.Config(
+    sessionURL: URL(string: "https://api.example.com/keypad/session")!,
+    type: .qwerty,
+    serverPublicKey: "BASE64_ED25519_FROM_skp-keygen")
+config.relayoutURL = URL(string: "https://api.example.com/keypad/relayout")
+config.maxLen = 32
+config.languages = ["ko", "en"]          // 한국어 먼저, 지구본 키로 영어 전환 (생략하면 서버 기본값 en, ko)
+
+let keypad = SecureKeypad(config: config)
+keypad.attach(to: passwordField)          // inputView 교체, 필드에는 • 만 표시
+keypad.onLanguageChange = { code in print("keyboard:", code) }
+keypad.onDone = { [weak self] in self?.login() }
+
+func login() {
+    let payload = try keypad.submit()    // {"v":1,"sid":"…","ct":"…"} → 서버 SDK decrypt()
+    api.login(userId: idField.text ?? "", passwordEnc: payload)
+}</code></pre>
+      <p class="muted">키패드는 <code>UIInputView</code>라 시스템 키보드처럼 올라오고, 화면 녹화·스크린샷 중에는 가려집니다. 글자는 서버가 그린 스프라이트를 붙여 그리므로 앱은 어떤 글자가 눌렸는지 모릅니다.</p>
+    </section>
+
+    <section class="card" id="android">
+      <h2>Android — AAR 모듈 <code>clients/android/secure-keypad</code></h2>
+      <table>
+        <tr><th>요구 사항</th><td>minSdk 24, Kotlin, BouncyCastle (X25519 · Ed25519 · ChaCha20-Poly1305). AndroidX 의존성 없음</td></tr>
+        <tr><th>설치</th><td><code>settings.gradle.kts</code>에 <code>include(":secure-keypad")</code> + <code>project(":secure-keypad").projectDir = file("…/clients/android/secure-keypad")</code>, 앱에서 <code>implementation(project(":secure-keypad"))</code></td></tr>
+        <tr><th>데모 실행</th><td>Android Studio로 <code>clients/android</code>를 열고 <code>demo</code> 모듈 실행. 에뮬레이터에서는 <code>DemoActivity.SERVER = "http://10.0.2.2:3789"</code>가 호스트의 예제 서버를 가리킵니다.</td></tr>
+        <tr><th>테스트</th><td><code>cd clients/android && ./gradlew :secure-keypad:testDebugUnitTest</code> — 벡터 재생 (JVM)</td></tr>
+      </table>
+      <pre><code>val keypad = SecureKeypad(this, SecureKeypad.Config(
+    sessionUrl = "https://api.example.com/keypad/session",
+    relayoutUrl = "https://api.example.com/keypad/relayout",
+    serverPublicKey = "BASE64_ED25519_FROM_skp-keygen",
+    type = KeypadType.QWERTY, maxLen = 32,
+    languages = listOf("ko", "en"),     // 한국어 먼저; 생략하면 서버 기본값 (en, ko)
+))
+keypad.attach(passwordEditText)          // 시스템 키보드 차단, 필드에는 • 만 표시, FLAG_SECURE
+keypad.onLanguageChange = { code -> Log.d("keypad", code) }
+
+lifecycleScope.launch {
+    val payload = keypad.submit()        // '{"v":1,"sid":"…","ct":"…"}' → 서버 SDK decrypt()
+    api.login(userId, passwordEnc = payload)
+}</code></pre>
+      <p class="muted">키패드가 보이는 동안 <code>FLAG_SECURE</code>가 걸려 스크린샷과 화면 녹화가 막힙니다. 스페이스바에 현재 언어가 표시되고 지구본 키가 언어를 순환합니다.</p>
+    </section>
+
+    <section class="card">
+      <h2>서버 쪽 — 언어 정하기</h2>
+      <p>서버 SDK의 <code>languages</code> 옵션이 최우선입니다. 지정하지 않으면 클라이언트가 요청한 <code>opts.langs</code>를 따르고, 둘 다 없으면 영어 + 한국어입니다. 숫자 키패드에는 적용되지 않습니다.</p>
+      <pre><code>// Node
+await skp.createSession(req.body, { ctx, languages: ["ko", "en"] });
+# Python
+skp.create_session(body, ctx=ctx, languages=["ko", "en"])
+// Java
+skp.createSession(body, SessionOptions.builder().ctx(ctx).languages("ko", "en").build());</code></pre>
+      <p class="muted">복호화 결과에서 한글 자모는 두벌식 규칙으로 음절로 조합됩니다 (<code>spec/HANGUL.md</code>). 예: ㅎ ㅏ ㄴ ㄱ ㅡ ㄹ → 한글, ㄷ ㅏ ㄹ ㄱ ㅏ → 달가.</p>
+    </section>
+  </main>
+  <script src="nav.js"></script>
+</body>
+</html>

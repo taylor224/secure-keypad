@@ -71,6 +71,9 @@ typedef struct {
     /* Optional TrueType files replacing the embedded Inter (iOS style) / Roboto (Material style). */
     const char *font_ios_path;
     const char *font_material_path;
+    /* Optional TrueType file replacing the embedded Noto Sans KR subset, used for glyphs the style
+     * fonts lack (Hangul jamo of the Korean layout). */
+    const char *font_fallback_path;
 
     uint32_t default_ttl_sec; /* 0 → 180 */
     uint32_t max_len_cap;     /* 0 → 256 */
@@ -82,6 +85,10 @@ typedef struct {
     const char *blank;  /* "fixed" (default) | "random" — number pad only */
     uint32_t ttl_sec;   /* 0 → ctx default */
     uint32_t max_len;   /* 0 → honour the client's request (bounded by max_len_cap) */
+    /* Comma-separated language codes of the QWERTY keypad in switch order, e.g. "en,ko" or "ko".
+     * NULL/"" → honour the client's request (opts.langs), else the default "en,ko". Supported:
+     * "en" (Latin QWERTY), "ko" (Korean 2-set / 두벌식, composed server-side). Ignored for number pads. */
+    const char *languages;
 } skp_session_opts;
 
 /* Lifecycle */

@@ -40,13 +40,33 @@ in milestone M2 by editing this table and regenerating vectors.
 
 ## 3. QWERTY (type 1)
 
-Four layers, listed in this order: `lower` (mode 0), `upper` (1), `sym1` (2), `sym2` (3).
-
-Character rows (before shuffling):
+A QWERTY keypad has 1 to 3 **languages** (`langs`, in switch order; the first is shown initially) and
+two letter layers per language plus two shared symbol layers, listed in this order (the position is the
+layer's *slot*, 0..7):
 
 ```
-lower : "qwertyuiop" | "asdfghjkl" | "zxcvbnm"
-upper : uppercase of lower, same positions
+for each language in order: lower, upper
+sym1, sym2
+```
+
+`lower` / `upper` carry the language code (`lang`); symbol layers do not. Two languages therefore give six
+layers: `en/lower`, `en/upper`, `ko/lower`, `ko/upper`, `sym1`, `sym2`. Modes are named `lower`, `upper`,
+`sym1`, `sym2`, `number` (§5) regardless of language.
+
+Languages and their letter rows (before shuffling), 10 / 9 / 7 keys:
+
+| code | id | rows | shift |
+|---|---|---|---|
+| `en` | 1 | `qwertyuiop` \| `asdfghjkl` \| `zxcvbnm` | ASCII uppercase |
+| `ko` | 2 | `ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ` \| `ㅁㄴㅇㄹㅎㅗㅓㅏㅣ` \| `ㅋㅌㅊㅍㅠㅜㅡ` | ㅂ→ㅃ ㅈ→ㅉ ㄷ→ㄸ ㄱ→ㄲ ㅅ→ㅆ ㅐ→ㅒ ㅔ→ㅖ, others unchanged |
+
+`upper` is `lower` with the shift mapping applied in place. The Korean layout is the 2-set (두벌식) jamo
+keyboard; the server composes syllables from the tapped jamo (HANGUL.md). The default language list, when
+neither the integrator nor the client names one, is `en, ko`.
+
+Symbol rows (before shuffling):
+
+```
 sym1  : "1234567890" | "-/:;()$&@\"" | ".,?!'"
 sym2  : "[]{}#%^*+=" | "_\\|~<>€£¥•" | ".,?!'"
 ```
@@ -71,13 +91,19 @@ row 2 : letters layers (lower, upper):
           chars     = row(ix + sk + g, W − ix − sk − g, 5, g)
           backspace = [W − ix − sk, y2, sk, kh]
 row 3 : mw = min(px(mode_key), rnd(W, 4))
-        mode  = [ix, y3, mw, kh]                role mode_sym1 on letters layers, mode_abc on symbol layers
-        space = [ix + mw + g, y3, W − 2ix − 2mw − 2g, kh]
-        done  = [W − ix − mw, y3, mw, kh]
+        one language:
+          mode  = [ix, y3, mw, kh]                role mode_sym1 on letters layers, mode_abc on symbol layers
+          space = [ix + mw + g, y3, W − 2ix − 2mw − 2g, kh]
+          done  = [W − ix − mw, y3, mw, kh]
+        two or more languages (lw = min(sk, mw)):
+          mode  = [ix, y3, lw, kh]
+          lang  = [ix + lw + g, y3, lw, kh]       role lang (globe key), on every qwerty layer
+          space = [ix + 2lw + 2g, y3, W − 2ix − 2lw − mw − 3g, kh]
+          done  = [W − ix − mw, y3, mw, kh]
 ```
 
-Listing order (and therefore slot order): row 0 left to right, row 1, row 2 (`shift`/`mode`, characters,
-`backspace`), row 3 (`mode`, `space`, `done`).
+Listing order of keys: row 0 left to right, row 1, row 2 (`shift`/`mode`, characters, `backspace`), row 3
+(`mode`, `lang` if present, `space`, `done`).
 
 ## 4. Shuffle
 
@@ -95,8 +121,8 @@ Policies:
 
 | policy | qwerty | number |
 |---|---|---|
-| `shuffle` (0) | `fy` each row of `lower`, then each row of `sym1`, then each row of `sym2` (stream order). `upper` mirrors `lower`. | `fy(digits)` |
-| `full` (1) | `fy` the concatenated characters of `lower` (26), split 10/9/7; then `sym1` (25) split 10/10/5; then `sym2` | same as shuffle |
+| `shuffle` (0) | for each language in order, `fy` each of its three rows; then each row of `sym1`, then each row of `sym2` (stream order). `upper` mirrors `lower` through the shift mapping. | `fy(digits)` |
+| `full` (1) | for each language in order, `fy` its concatenated 26 characters and split 10/9/7; then `sym1` (25) split 10/10/5; then `sym2` | same as shuffle |
 | `fixed` (2) | no stream consumption | `fy(digits)` (a fixed number pad is never generated) |
 
 Number pad blank placement follows the digit shuffle: `blank = fixed` puts the blank in cell 9;
@@ -105,21 +131,25 @@ Number pad blank placement follows the digit shuffle: `blank = fixed` puts the b
 
 ## 5. Number pad (type 2)
 
-Single layer, mode 4. Grid 3 × 4, cell `c = r × 3 + col`, rows at `y_r`, `key_h = px(num_key_h)`,
-columns `row(ix, W − ix, 3, g)`. Roles: 10 × `char` (digits), one `blank`, `backspace` at cell 11.
+Single layer (slot 0), mode `number`, no languages (`langs` is empty). Grid 3 × 4, cell `c = r × 3 + col`,
+rows at `y_r`, `key_h = px(num_key_h)`, columns `row(ix, W − ix, 3, g)`. Roles: 10 × `char` (digits), one
+`blank`, `backspace` at cell 11.
 
 ## 6. Sprites
 
 - `tile.w = max(rect.w over char keys)`, `tile.h = kh` (or `px(num_key_h)`), `tile.cols = 10`,
-  `tile.count = number of char keys across all layers` (102 for qwerty, 10 for number).
+  `tile.count = number of char keys across all layers` (52 per language + 50 for the symbol layers: 102 for
+  one language, 154 for two; 10 for number).
 - `popup.w = min(rnd(3 × tile.w, 2), rnd(3 × tile.h, 2))`, `popup.h = rnd(7 × tile.h, 5)`, same `cols` and
   `count`. The width cap keeps number-pad popup cells (whose keys are very wide) compact.
 - Sprite image size = `cols × cell.w` by `ceil(count / cols) × cell.h`, 8-bit grayscale PNG. Unused cells are
   zero.
-- Glyph rendering: font `Inter-Regular` for iOS style, `Roboto-Regular` for Material; size `px(glyph)` for
+- Glyph rendering: font `Inter-Regular` for iOS style, `Roboto-Regular` for Material; glyphs those fonts
+  lack (the Hangul jamo) come from a fallback font, by default a Noto Sans KR subset; size `px(glyph)` for
   tiles, `px(popup_glyph)` for popups. The glyph's ink box is centred horizontally in the cell. Vertically,
   a shared baseline is used for every cell of a sprite: `baseline = rnd(cell.h + cap_h, 2)` where `cap_h`
-  is the ink height of `H` at the same size. This mirrors native keyboards, where labels share a baseline.
+  is the ink height of `H` in the style font at the same size. This mirrors native keyboards, where labels
+  share a baseline.
 - Renderers may differ in anti-aliasing; sprites are therefore excluded from test vectors (vectors are
   produced with rendering disabled, yielding zero-length sprite sections).
 
@@ -129,3 +159,9 @@ For each key: draw the chrome for its role (background, shadow, icon for control
 keys blit sprite cell `t` centred in `r`, tinted with the theme text color, without scaling. On press, draw
 the platform's feedback (popup bubble with popup cell `t`, or darkened key). Never draw text for `char`
 keys; the client has no text to draw.
+
+Language state: the client shows the `lower` / `upper` layers of the current language (initially
+`langs[0]`); the `lang` key (globe icon) advances to the next language, returning to the letter layers with
+shift off. With two or more languages the space bar may show the current language's name (English,
+한국어). Neither the language switch nor the language itself is transmitted: the layout id of each tap
+identifies the layer, and therefore the language, to the server.

@@ -1,14 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 
 type Key = { r: [number, number, number, number]; role: string; t?: number };
-type Layer = { id: number; mode: string; keys: Key[] };
-type Layout = { w: number; h: number; layouts: Layer[]; maxLen: number };
+type Layer = { id: number; mode: string; lang?: string; keys: Key[] };
+type Layout = { w: number; h: number; langs?: string[]; layouts: Layer[]; maxLen: number };
 
+/** Characters of the fixed (unshuffled) layers in listing order, keyed by "lang/mode" for letter layers. */
 const FIXED: Record<string, string> = {
-  lower: "qwertyuiopasdfghjklzxcvbnm",
-  upper: "QWERTYUIOPASDFGHJKLZXCVBNM",
+  "en/lower": "qwertyuiopasdfghjklzxcvbnm",
+  "en/upper": "QWERTYUIOPASDFGHJKLZXCVBNM",
+  "ko/lower": "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ",
+  "ko/upper": "ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ",
   sym1: "1234567890-/:;()$&@\".,?!'",
 };
+
+const layerKey = (l: Layer) => (l.lang ? `${l.lang}/${l.mode}` : l.mode);
 
 /** Loads the demo and waits until both keypads are attached (the page fetches the public key first). */
 async function load(page: Page, url: string) {
@@ -92,8 +97,9 @@ test.describe("secure-keypad web demo", () => {
     const pw = page.locator("#password");
     await pw.click();
     const layout = await ready(page, "password");
+    expect(layout.langs).toEqual(["en", "ko"]); // nobody named languages: the server default
     const { box } = await surface(page);
-    const byMode = Object.fromEntries(layout.layouts.map((l) => [l.mode, l])) as Record<string, Layer>;
+    const byMode = Object.fromEntries(layout.layouts.map((l) => [layerKey(l), l])) as Record<string, Layer>;
     const charKey = (mode: string, ch: string): Key => {
       const idx = Array.from(FIXED[mode]).indexOf(ch);
       return byMode[mode].keys.filter((k) => k.role === "char")[idx];
@@ -102,11 +108,11 @@ test.describe("secure-keypad web demo", () => {
     const tap = (k: Key) => tapDevicePoint(page, box, layout, ...centre(k));
 
     // "Hi 42"
-    await tap(roleKey("lower", "shift"));
-    await tap(charKey("upper", "H"));
-    await tap(charKey("lower", "i"));
-    await tap(roleKey("lower", "space"));
-    await tap(roleKey("lower", "mode_sym1"));
+    await tap(roleKey("en/lower", "shift"));
+    await tap(charKey("en/upper", "H"));
+    await tap(charKey("en/lower", "i"));
+    await tap(roleKey("en/lower", "space"));
+    await tap(roleKey("en/lower", "mode_sym1"));
     await tap(charKey("sym1", "4"));
     await tap(charKey("sym1", "2"));
     await expect(pw).toHaveValue("•••••");
@@ -116,6 +122,68 @@ test.describe("secure-keypad web demo", () => {
     const result = await page.evaluate(() => (window as any).__skp.lastLogin);
     expect(result.ok).toBe(true);
     expect(result.password).toBe("Hi 42");
+  });
+
+  test("Korean first: the globe key switches languages and jamo taps come back as composed syllables", async ({ page }) => {
+    await load(page, "/?layout=fixed&langs=ko,en");
+    const pw = page.locator("#password");
+    await pw.click();
+    const layout = await ready(page, "password");
+    expect(layout.langs).toEqual(["ko", "en"]);
+    expect(layout.layouts.map(layerKey)).toEqual(["ko/lower", "ko/upper", "en/lower", "en/upper", "sym1", "sym2"]);
+    const { box } = await surface(page);
+    const byMode = Object.fromEntries(layout.layouts.map((l) => [layerKey(l), l])) as Record<string, Layer>;
+    const charKey = (mode: string, ch: string): Key => {
+      const idx = Array.from(FIXED[mode]).indexOf(ch);
+      return byMode[mode].keys.filter((k) => k.role === "char")[idx];
+    };
+    const roleKey = (mode: string, role: string): Key => byMode[mode].keys.find((k) => k.role === role)!;
+    const tap = (k: Key) => tapDevicePoint(page, box, layout, ...centre(k));
+    const language = () => page.evaluate(() => (window as any).__skp.password.language);
+    expect(await language()).toBe("ko");
+    // 한글 (ㅎ ㅏ ㄴ ㄱ ㅡ ㄹ), shift + ㅆ for 씨, then globe → English "Pw", globe → back to Korean
+    for (const j of "ㅎㅏㄴㄱㅡㄹ") await tap(charKey("ko/lower", j));
+    await tap(roleKey("ko/lower", "shift"));
+    await tap(charKey("ko/upper", "ㅆ"));
+    await tap(charKey("ko/lower", "ㅣ"));
+    await tap(roleKey("ko/lower", "lang"));
+    expect(await language()).toBe("en");
+    await tap(roleKey("en/lower", "shift"));
+    await tap(charKey("en/upper", "P"));
+    await tap(charKey("en/lower", "w"));
+    await tap(roleKey("en/lower", "lang"));
+    expect(await language()).toBe("ko");
+    await expect(pw).toHaveValue("•".repeat(10));
+    await page.getByRole("button", { name: "로그인" }).click();
+    await page.waitForFunction(() => (window as any).__skp?.lastLogin);
+    const result = await page.evaluate(() => (window as any).__skp.lastLogin);
+    expect(result.ok).toBe(true);
+    expect(result.password).toBe("한글씨Pw");
+  });
+
+  test("settings: changing layout, style or language rebuilds the keypads and reopens the keypad", async ({ page }) => {
+    await load(page, "/");
+    await ready(page, "password");
+    const status = page.locator("#settings-status");
+    await expect(status).toContainText("배열 shuffle");
+    await expect(status).toContainText("English · 한국어");
+    await page.selectOption("#langs", "ko");
+    await expect(status).toContainText("언어 한국어");
+    const layout = await ready(page, "password");
+    expect(layout.langs).toEqual(["ko"]);
+    expect(layout.layouts.flatMap((l) => l.keys).some((k) => k.role === "lang")).toBe(false);
+    await page.selectOption("#layout", "fixed");
+    await expect(status).toContainText("배열 fixed");
+    await page.selectOption("#style", "material");
+    await expect(status).toContainText("스타일 Material");
+    const after = await ready(page, "password");
+    expect(after.langs).toEqual(["ko"]);
+    expect(page.url()).toContain("layout=fixed");
+    expect(page.url()).toContain("style=material");
+    expect(page.url()).toContain("langs=ko");
+    // desktop: the password keypad is reopened so the change is visible; mobile: opened on the next focus
+    const desktop = await page.evaluate(() => matchMedia("(pointer: fine)").matches);
+    if (desktop) expect(await page.evaluate(() => (window as any).__skp.password.isOpen)).toBe(true);
   });
 
   test("shuffled layout: the same slot order decrypts to a permutation, never the fixed string", async ({ page }) => {

@@ -40,7 +40,9 @@ def make(name, request, opts, text, hooks, c_sk, relayout_vp=None, text2="", gap
             "k_c2s": hx(dbg["k_c2s"]),
             "inner_json": R.canonical_json(inner).decode(),
             "sealed": hx(sealed),
-            "mapping": {R.MODE_NAMES[l.mode]: "".join(k.ch if k.ch else ("\\b" if k.role == "backspace" else "_") for k in l.keys) for l in dbg["layout"].layers},
+            "mapping": {f"{slot}:" + (R.LANG_CODES[l.lang] + "/" if l.lang else "") + R.MODE_NAMES[l.mode]:
+                        "".join(k.ch if k.ch else ("\\b" if k.role == "backspace" else "_") for k in l.keys)
+                        for slot, l in enumerate(dbg["layout"].layers)},
         },
         "input": {"text": text, "taps": [list(t) for t in taps]},
     }
@@ -72,8 +74,8 @@ def make(name, request, opts, text, hooks, c_sk, relayout_vp=None, text2="", gap
 
 
 def number_errors(mk, sealed, opened, dbg, payload):
-    bs = R.find_key(dbg["layout"], 4, "backspace")
-    lid = R.layout_id(0, 4)
+    bs = R.find_key(dbg["layout"], R.MODE_NUMBER, "backspace")
+    lid = R.layout_id(0, 0)  # the number layer is slot 0
     ml = opened["inner"]["maxLen"]
     k = opened["k_c2s"]
     sid = opened["sid"]
@@ -83,8 +85,8 @@ def number_errors(mk, sealed, opened, dbg, payload):
         {"name": "expired", "payload": payload, "ctx": "user-42", "now": NOW + 181, "expect": "EXPIRED"},
         {"name": "tap_on_backspace", "payload": R.client_build_input(k, sid, ml, [(lid, bs.r[0] + 1, bs.r[1] + 1)]), "ctx": "user-42", "now": NOW + 60, "expect": "TAMPERED"},
         {"name": "out_of_bounds", "payload": R.client_build_input(k, sid, ml, [(lid, 60000, 1)]), "ctx": "user-42", "now": NOW + 60, "expect": "TAMPERED"},
-        {"name": "wrong_mode", "payload": R.client_build_input(k, sid, ml, [(R.layout_id(0, 0), 5, 5)]), "ctx": "user-42", "now": NOW + 60, "expect": "TAMPERED"},
-        {"name": "unknown_gen", "payload": R.client_build_input(k, sid, ml, [(R.layout_id(3, 4), 5, 5)]), "ctx": "user-42", "now": NOW + 60, "expect": "TAMPERED"},
+        {"name": "unknown_slot", "payload": R.client_build_input(k, sid, ml, [(R.layout_id(0, 1), 5, 5)]), "ctx": "user-42", "now": NOW + 60, "expect": "TAMPERED"},
+        {"name": "unknown_gen", "payload": R.client_build_input(k, sid, ml, [(R.layout_id(3, 0), 5, 5)]), "ctx": "user-42", "now": NOW + 60, "expect": "TAMPERED"},
         {"name": "sid_mismatch", "payload": dict(payload, sid=R.b64url(bytes(16))), "ctx": "user-42", "now": NOW + 60, "expect": "SID_MISMATCH"},
     ]
     ct = bytearray(R.unb64(payload["ct"]))
@@ -104,21 +106,35 @@ def main():
     base_hooks = lambda tag: R.Hooks(  # noqa: E731
         s_sk=bytes([tag]) * 32, sid=bytes([tag, 0x5d]) * 8, seed=bytes([0x77, tag]) * 16, nonce24=bytes([tag ^ 0xff]) * 24, now=NOW)
     vectors = [
+        # English-only sessions (server option "languages": ["en"]): no lang key, four layers
         make("qwerty-ios-390x3-shuffle", {"v": 1, "type": "qwerty", "viewport": {"w": 390, "dpr": 3, "platform": "ios"}, "opts": {"maxLen": 24}},
-             {"ctx": "user-42", "layout": "shuffle", "blank": "fixed", "ttl": 180}, "Hello, w0rld!", base_hooks(0x01), bytes([0x21]) * 32),
+             {"ctx": "user-42", "layout": "shuffle", "blank": "fixed", "ttl": 180, "languages": ["en"]}, "Hello, w0rld!", base_hooks(0x01), bytes([0x21]) * 32),
         make("qwerty-material-360x2.625-full", {"v": 1, "type": "qwerty", "viewport": {"w": 360, "dpr": 2.625, "platform": "android"}},
-             {"ctx": "login-7", "layout": "full", "ttl": 300}, "pa55w0rd#[€", base_hooks(0x02), bytes([0x22]) * 32),
+             {"ctx": "login-7", "layout": "full", "ttl": 300, "languages": ["en"]}, "pa55w0rd#[€", base_hooks(0x02), bytes([0x22]) * 32),
         make("qwerty-web-1024x1-fixed", {"v": 1, "type": "qwerty", "viewport": {"w": 1024, "dpr": 1, "platform": "web"}},
-             {"layout": "fixed", "maxLen": 12}, "fixed Layout", base_hooks(0x03), bytes([0x23]) * 32),
+             {"layout": "fixed", "maxLen": 12, "languages": ["en"]}, "fixed Layout", base_hooks(0x03), bytes([0x23]) * 32),
         make("qwerty-web-ios-style-375x2-gaps", {"v": 1, "type": "qwerty", "viewport": {"w": 375, "dpr": 2, "platform": "web", "style": "ios"}},
-             {"ctx": "gap", "layout": "shuffle"}, "zq", base_hooks(0x04), bytes([0x24]) * 32, gap_offset=(0, -25)),
+             {"ctx": "gap", "layout": "shuffle", "languages": ["en"]}, "zq", base_hooks(0x04), bytes([0x24]) * 32, gap_offset=(0, -25)),
+        # Korean + English: the client asks for ["ko", "en"] (Korean first), six layers with a lang key
+        make("qwerty-ios-390x3-ko-en-shuffle", {"v": 1, "type": "qwerty", "viewport": {"w": 390, "dpr": 3, "platform": "ios"}, "opts": {"maxLen": 24, "langs": ["ko", "en"]}},
+             {"ctx": "user-ko", "layout": "shuffle"}, "한글 Pw1!", base_hooks(0x08), bytes([0x28]) * 32),
+        # Korean only, full shuffle: compound finals, dokkaebi-bul carry, a standalone compound consonant
+        make("qwerty-material-360x2.625-ko-full", {"v": 1, "type": "qwerty", "viewport": {"w": 360, "dpr": 2.625, "platform": "android"}, "opts": {"langs": ["ko"]}},
+             {"ctx": "ko-only", "layout": "full"}, "닭갈비 뷁있ㄳ", base_hooks(0x09), bytes([0x29]) * 32),
+        # neither side names languages: the default is en + ko; fixed layout on a wide web surface
+        make("qwerty-web-1024x1-ko-en-fixed", {"v": 1, "type": "qwerty", "viewport": {"w": 1024, "dpr": 1, "platform": "web"}},
+             {"layout": "fixed", "maxLen": 24}, "Mixed 혼합 텍스트!", base_hooks(0x0A), bytes([0x2A]) * 32),
         make("number-ios-390x3-blank-fixed", {"v": 1, "type": "number", "viewport": {"w": 390, "dpr": 3, "platform": "ios"}},
              {"ctx": "user-42", "layout": "shuffle", "blank": "fixed"}, "092817", base_hooks(0x05), bytes([0x25]) * 32, errors=number_errors),
         make("number-material-412x2.625-blank-random", {"v": 1, "type": "number", "viewport": {"w": 412, "dpr": 2.625, "platform": "web"}, "opts": {"maxLen": 6}},
              {"layout": "shuffle", "blank": "random"}, "000123", base_hooks(0x06), bytes([0x26]) * 32),
         make("qwerty-ios-relayout-portrait-to-landscape", {"v": 1, "type": "qwerty", "viewport": {"w": 390, "dpr": 3, "platform": "ios"}},
-             {"ctx": "rot", "layout": "shuffle"}, "ab", base_hooks(0x07), bytes([0x27]) * 32,
+             {"ctx": "rot", "layout": "shuffle", "languages": ["en"]}, "ab", base_hooks(0x07), bytes([0x27]) * 32,
              relayout_vp={"w": 844, "dpr": 3, "platform": "ios"}, text2="CD 9"),
+        # relayout with two languages: taps on the Korean layer of generation 0 and the English layer of 1
+        make("qwerty-android-relayout-ko-en", {"v": 1, "type": "qwerty", "viewport": {"w": 412, "dpr": 2.625, "platform": "android"}},
+             {"ctx": "rot-ko", "layout": "shuffle"}, "회전", base_hooks(0x0B), bytes([0x2B]) * 32,
+             relayout_vp={"w": 915, "dpr": 2.625, "platform": "android"}, text2=" ok"),
     ]
     for v in vectors:
         path = os.path.join(OUT, v["name"] + ".json")

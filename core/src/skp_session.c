@@ -15,6 +15,8 @@ typedef struct {
     int platform, style;
     int has_max_len;
     uint32_t max_len;
+    int has_langs, nlangs;
+    uint8_t langs[SKP_MAX_LANGS];
 } skp_request;
 
 static int json_int(const cJSON *n, int64_t *out) {
@@ -114,6 +116,28 @@ static int parse_request(const char *json, size_t len, skp_request *r) {
             r->has_max_len = 1;
             r->max_len = (uint32_t)ml;
         }
+        const cJSON *langs = cJSON_GetObjectItemCaseSensitive(opts, "langs");
+        if (langs && !cJSON_IsNull(langs)) {
+            int n = cJSON_IsArray(langs) ? cJSON_GetArraySize(langs) : -1;
+            if (n < 1 || n > SKP_MAX_LANGS) {
+                rc = SKP_ERR_BAD_REQUEST;
+                goto done;
+            }
+            for (int i = 0; i < n; i++) {
+                const cJSON *item = cJSON_GetArrayItem(langs, i);
+                int id = cJSON_IsString(item) ? skp_lang_by_code(item->valuestring, strlen(item->valuestring)) : 0;
+                for (int k = 0; k < i; k++)
+                    if (r->langs[k] == id)
+                        id = 0;
+                if (!id) {
+                    rc = SKP_ERR_BAD_REQUEST;
+                    goto done;
+                }
+                r->langs[i] = (uint8_t)id;
+            }
+            r->has_langs = 1;
+            r->nlangs = n;
+        }
     }
     rc = SKP_OK;
 done:
@@ -122,13 +146,19 @@ done:
 }
 
 static int parse_opts(const skp_ctx *ctx, const skp_session_opts *o, int *policy, int *blank, uint32_t *ttl,
-                      uint32_t *max_len_override) {
+                      uint32_t *max_len_override, uint8_t langs[SKP_MAX_LANGS], int *nlangs) {
     *policy = SKP_POLICY_SHUFFLE;
     *blank = SKP_BLANK_FIXED;
     *ttl = ctx->default_ttl;
     *max_len_override = 0;
+    *nlangs = 0;
     if (!o)
         return SKP_OK;
+    if (o->languages && *o->languages) {
+        int rc = skp_parse_langs(o->languages, langs, nlangs);
+        if (rc)
+            return rc;
+    }
     if (o->layout && *o->layout) {
         if (!strcmp(o->layout, "shuffle"))
             *policy = SKP_POLICY_SHUFFLE;
@@ -244,9 +274,10 @@ int skp_session_create(const skp_ctx *ctx, const char *req_json, size_t req_len,
     int rc = parse_request(req_json, req_len, &r);
     if (rc)
         return rc;
-    int policy, blank;
+    int policy, blank, opt_nlangs = 0;
     uint32_t ttl, ml_override;
-    rc = parse_opts(ctx, opts, &policy, &blank, &ttl, &ml_override);
+    uint8_t opt_langs[SKP_MAX_LANGS] = {0};
+    rc = parse_opts(ctx, opts, &policy, &blank, &ttl, &ml_override, opt_langs, &opt_nlangs);
     if (rc)
         return rc;
     uint32_t max_len = ml_override ? ml_override : (r.has_max_len ? r.max_len : (r.type == SKP_TYPE_QWERTY ? 32 : 16));
@@ -254,6 +285,22 @@ int skp_session_create(const skp_ctx *ctx, const char *req_json, size_t req_len,
         max_len = 1;
     if (max_len > ctx->max_len_cap)
         max_len = ctx->max_len_cap;
+    /* languages: the integrator's choice wins, then the client's request, then Korean + English */
+    uint8_t langs[SKP_MAX_LANGS] = {0};
+    int nlangs = 0;
+    if (r.type == SKP_TYPE_QWERTY) {
+        if (opt_nlangs) {
+            memcpy(langs, opt_langs, (size_t)opt_nlangs);
+            nlangs = opt_nlangs;
+        } else if (r.has_langs) {
+            memcpy(langs, r.langs, (size_t)r.nlangs);
+            nlangs = r.nlangs;
+        } else {
+            langs[0] = SKP_LANG_EN;
+            langs[1] = SKP_LANG_KO;
+            nlangs = 2;
+        }
+    }
     if (policy == SKP_POLICY_FIXED) {
         static int warned = 0;
         if (!warned) {
@@ -278,6 +325,8 @@ int skp_session_create(const skp_ctx *ctx, const char *req_json, size_t req_len,
     st->policy = (uint8_t)policy;
     st->blank = (uint8_t)blank;
     st->style = (uint8_t)r.style;
+    st->nlangs = nlangs;
+    memcpy(st->langs, langs, sizeof st->langs);
     st->max_len = max_len;
     st->created = skp_now();
     st->expires = st->created + ttl;
@@ -325,7 +374,8 @@ int skp_session_create(const skp_ctx *ctx, const char *req_json, size_t req_len,
         rc = SKP_ERR_NOMEM;
         goto done;
     }
-    rc = skp_layout_build(layout, r.type, policy, blank, r.style, r.W, r.dpr_milli, st->gens[0].seed);
+    rc = skp_layout_build(layout, r.type, policy, blank, r.style, st->langs, st->nlangs, r.W, r.dpr_milli,
+                          st->gens[0].seed);
     if (rc)
         goto done;
     rc = build_inner_ct(ctx, layout, 0, max_len, (int64_t)ttl, st->k_s2c, 0, SKP_AAD_SESSION, st->sid, &ct);
@@ -409,6 +459,7 @@ done:
         sodium_free(layout);
     sodium_free(secrets);
     sodium_free(st);
+    sodium_stackzero(16384);
     return rc;
 }
 
@@ -480,7 +531,8 @@ int skp_session_relayout(const skp_ctx *ctx, const uint8_t *sealed, size_t seale
     st->gens[gen].dpr_milli = r.dpr_milli;
     st->gens[gen].platform = (uint8_t)r.platform;
     st->ngens = gen + 1;
-    rc = skp_layout_build(layout, st->type, st->policy, st->blank, st->style, r.W, r.dpr_milli, st->gens[gen].seed);
+    rc = skp_layout_build(layout, st->type, st->policy, st->blank, st->style, st->langs, st->nlangs, r.W, r.dpr_milli,
+                          st->gens[gen].seed);
     if (rc)
         goto done;
     rc = build_inner_ct(ctx, layout, gen, st->max_len, st->expires - skp_now(), st->k_s2c, st->s2c_ctr,
@@ -524,6 +576,7 @@ done:
     skp_buf_free(&ct);
     sodium_free(layout);
     sodium_free(st);
+    sodium_stackzero(16384);
     return rc;
 }
 
@@ -565,6 +618,7 @@ int skp_session_decrypt(const skp_ctx *ctx, const uint8_t *sealed, size_t sealed
         return SKP_ERR_NOMEM;
     cJSON *root = NULL;
     uint8_t *ctbuf = NULL, *batch = NULL, *result = NULL;
+    uint32_t *cps = NULL, *composed = NULL;
     skp_layout *layouts = NULL; /* one per generation, lazily built */
     uint8_t built[SKP_MAX_GENS] = {0};
     int rc = skp_state_unseal(ctx, sealed, sealed_len, st);
@@ -663,11 +717,13 @@ int skp_session_decrypt(const skp_ctx *ctx, const uint8_t *sealed, size_t sealed
     }
     layouts = sodium_malloc(sizeof(skp_layout) * (size_t)st->ngens);
     result = sodium_malloc((size_t)st->max_len * 4 + 1);
-    if (!layouts || !result) {
+    cps = sodium_malloc(sizeof(uint32_t) * ((size_t)st->max_len + 1));
+    composed = sodium_malloc(sizeof(uint32_t) * ((size_t)st->max_len + 1));
+    if (!layouts || !result || !cps || !composed) {
         rc = SKP_ERR_NOMEM;
         goto done;
     }
-    size_t rlen = 0;
+    size_t ncps = 0;
     for (uint32_t i = 0; i < st->max_len; i++) {
         const uint8_t *rec = batch + 4 + (size_t)i * SKP_RECORD_SIZE;
         if (i >= count) {
@@ -682,18 +738,15 @@ int skp_session_decrypt(const skp_ctx *ctx, const uint8_t *sealed, size_t sealed
             rc = SKP_ERR_TAMPERED;
             goto done;
         }
-        int gen = (int)(lid >> 3), mode = (int)(lid & 7);
+        int gen = (int)(lid >> 3), slot = (int)(lid & 7);
         if (gen >= st->ngens) {
-            rc = SKP_ERR_TAMPERED;
-            goto done;
-        }
-        if ((st->type == SKP_TYPE_QWERTY && mode > 3) || (st->type == SKP_TYPE_NUMBER && mode != SKP_MODE_NUMBER)) {
             rc = SKP_ERR_TAMPERED;
             goto done;
         }
         if (!built[gen]) {
             const skp_gen *g = &st->gens[gen];
-            rc = skp_layout_build(&layouts[gen], st->type, st->policy, st->blank, st->style, g->W, g->dpr_milli, g->seed);
+            rc = skp_layout_build(&layouts[gen], st->type, st->policy, st->blank, st->style, st->langs, st->nlangs, g->W,
+                                  g->dpr_milli, g->seed);
             if (rc)
                 goto done;
             built[gen] = 1;
@@ -703,14 +756,19 @@ int skp_session_decrypt(const skp_ctx *ctx, const uint8_t *sealed, size_t sealed
             rc = SKP_ERR_TAMPERED;
             goto done;
         }
-        const skp_layer *layer = skp_layout_layer(l, mode);
+        const skp_layer *layer = skp_layout_slot(l, slot);
         const skp_key *k = layer ? skp_layout_hit(layer, (int32_t)x, (int32_t)y) : NULL;
         if (!k || (k->role != SKP_ROLE_CHAR && k->role != SKP_ROLE_SPACE)) {
             rc = SKP_ERR_TAMPERED;
             goto done;
         }
-        rlen += utf8_encode(result + rlen, k->cp);
+        cps[ncps++] = k->cp;
     }
+    /* Korean jamo compose into syllables (spec/HANGUL.md); everything else passes through */
+    size_t ncomposed = skp_hangul_compose(cps, ncps, composed);
+    size_t rlen = 0;
+    for (size_t i = 0; i < ncomposed; i++)
+        rlen += utf8_encode(result + rlen, composed[i]);
     skp_secret *s = malloc(sizeof *s);
     if (!s) {
         rc = SKP_ERR_NOMEM;
@@ -729,6 +787,10 @@ int skp_session_decrypt(const skp_ctx *ctx, const uint8_t *sealed, size_t sealed
 done:
     if (result)
         sodium_free(result);
+    if (cps)
+        sodium_free(cps);
+    if (composed)
+        sodium_free(composed);
     if (layouts)
         sodium_free(layouts);
     if (batch)
@@ -736,6 +798,7 @@ done:
     free(ctbuf);
     cJSON_Delete(root);
     sodium_free(st);
+    sodium_stackzero(16384);
     return rc;
 }
 

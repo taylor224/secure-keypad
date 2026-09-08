@@ -8,6 +8,7 @@ import subprocess
 
 import pytest
 
+import hangul
 import skp_ref as R
 from secure_keypad_server import (
     MemoryStore,
@@ -23,8 +24,10 @@ MASTER = bytes.fromhex(MASTER_HEX)
 KEYGEN = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "core", "build", "skp-keygen"))
 
 ROWS = {
-    "lower": ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
-    "upper": ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"],
+    "en/lower": ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
+    "en/upper": ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"],
+    "ko/lower": ["ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ"],
+    "ko/upper": ["ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ"],
     "sym1": ["1234567890", "-/:;()$&@\"", ".,?!'"],
     "sym2": ["[]{}#%^*+=", "_\\|~<>€£¥•", ".,?!'"],
 }
@@ -45,7 +48,7 @@ def fixed_mapping(inner):
     """For layout='fixed': maps (layout_id, char) -> key rect from the decrypted inner JSON."""
     out = {}
     for layer in inner["layouts"]:
-        chars = "".join(ROWS[layer["mode"]])
+        chars = "".join(ROWS[(layer["lang"] + "/" + layer["mode"]) if "lang" in layer else layer["mode"]])
         keys = [k for k in layer["keys"] if k["role"] == "char"]
         assert len(keys) == len(chars)
         for k, ch in zip(keys, chars):
@@ -57,7 +60,7 @@ def fixed_mapping(inner):
 
 def taps_for(mapping, text):
     taps = []
-    for ch in text:
+    for ch in hangul.decompose(text):
         lid, (x, y, w, h) = mapping[ch]
         taps.append((lid, x + w // 2, y + h // 2))
     return taps
@@ -129,7 +132,7 @@ def test_qwerty_roundtrip_fixed_layout(server, text, platform, w, dpr):
     assert resp["kid"] == server.key_id and set(resp) == {"v", "sid", "kid", "sp", "sig", "ct"}
     opened = R.client_open(resp, c_sk, pk)
     inner = opened["inner"]
-    assert inner["maxLen"] == 24 and len(inner["layouts"]) == 4
+    assert inner["maxLen"] == 24 and len(inner["layouts"]) == 6 and inner["langs"] == ["en", "ko"]
     assert opened["tiles"][:4] == b"\x89PNG" and opened["popups"][:4] == b"\x89PNG"
     for layer in inner["layouts"]:
         for k in layer["keys"]:
@@ -142,6 +145,39 @@ def test_qwerty_roundtrip_fixed_layout(server, text, platform, w, dpr):
     assert secret.wiped and len(secret) == 0
     with pytest.raises(ValueError):
         secret.bytes
+
+
+def test_languages(server):
+    c_sk, c_pk = client_keys()
+    pk = base64.b64decode(server.public_key)
+    resp = server.create_session(request(c_pk, "qwerty"), ctx="ko", layout="fixed", languages=["ko", "en"])
+    opened = R.client_open(resp, c_sk, pk)
+    inner = opened["inner"]
+    assert inner["langs"] == ["ko", "en"] and [l.get("lang") for l in inner["layouts"]] == ["ko", "ko", "en", "en", None, None]
+    assert all(sum(k["role"] == "lang" for k in l["keys"]) == 1 for l in inner["layouts"])
+    taps = taps_for(fixed_mapping(inner), "한글 비밀번호 Pw1!")
+    payload = R.client_build_input(opened["k_c2s"], opened["sid"], inner["maxLen"], taps)
+    with server.decrypt(payload, ctx="ko") as secret:
+        assert secret.text == "한글 비밀번호 Pw1!"
+    # string form, single language: no lang key
+    resp = server.create_session(request(c_pk, "qwerty"), layout="fixed", languages="ko")
+    inner = R.client_open(resp, c_sk, pk)["inner"]
+    assert inner["langs"] == ["ko"] and len(inner["layouts"]) == 4
+    assert not any(k["role"] == "lang" for l in inner["layouts"] for k in l["keys"])
+    # the client's request is honoured when the server passes nothing
+    r = request(c_pk, "qwerty")
+    r["opts"] = {"langs": ["ko"]}
+    inner = R.client_open(server.create_session(r), c_sk, pk)["inner"]
+    assert inner["langs"] == ["ko"]
+    with pytest.raises(SkpError) as e:
+        server.create_session(request(c_pk, "qwerty"), languages=["xx"])
+    assert e.value.name == "UNSUPPORTED"
+    r["opts"] = {"langs": ["en", "en"]}
+    with pytest.raises(SkpError) as e:
+        server.create_session(r)
+    assert e.value.name == "BAD_REQUEST"
+    inner = R.client_open(server.create_session(request(c_pk, "number"), languages=["ko"]), c_sk, pk)["inner"]
+    assert inner["langs"] == []
 
 
 def test_json_string_inputs(server):

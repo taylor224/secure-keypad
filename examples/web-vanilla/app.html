@@ -37,10 +37,17 @@
     .res-hidden, .res-note { color: var(--muted); font-size: 11px; }
     .res-note { margin-top: 6px; }
     .hint { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+    .menu { display: none; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 0 0 8px; }
+    .menu a { font-size: 12px; color: var(--accent); text-decoration: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; }
+    html[data-standalone="1"] .menu { display: flex; }
   </style>
 </head>
 <body>
   <div class="screen">
+    <nav class="menu" aria-label="예제 메뉴">
+      <a href="./">일반 웹</a><a href="ios.html">iPhone 시뮬레이션</a><a href="android.html">Pixel 시뮬레이션</a>
+      <a href="app.html?device=ios">iOS 화면</a><a href="app.html?device=android">Android 화면</a><a href="native.html">네이티브 SDK 예제</a>
+    </nav>
     <div class="appbar"><span class="back">‹ 뒤로</span><span>간편 로그인</span><span style="width:44px"></span></div>
     <div class="avatar"></div>
     <h1>안녕하세요, 회원님</h1>
@@ -66,23 +73,28 @@
       const theme = qs.get("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
       document.documentElement.dataset.device = device;
       document.documentElement.dataset.theme = theme;
+      if (qs.get("embedded") !== "1") document.documentElement.dataset.standalone = "1";
       // inside a device frame the host draws the status bar over us: leave room for it
       const statusH = Number(qs.get("statusH") || 0);
       document.documentElement.style.setProperty("--status-h", statusH + "px");
       const status = document.getElementById("status");
       const result = document.getElementById("result");
+      const hint = document.getElementById("hint");
       const demo = await SkpDemo.setup({
         pinEl: document.getElementById("pin"),
         passwordEl: document.getElementById("password"),
         layout: () => qs.get("layout") || "shuffle",
         style: device === "ios" ? "ios" : "material",
         theme,
+        languages: qs.get("langs") || undefined,              // e.g. ?langs=ko,en — omit for the server default (en, ko)
         popups: qs.get("popups") === "0" ? false : true,      // simulations use a mouse: always show popups
         safeAreaBottom: Number(qs.get("safeBottom") || 0),
-        doneLabel: device === "ios" ? "완료" : "완료",
+        doneLabel: "완료",
         onStatus: (m) => (status.textContent = m),
+        onLang: (code) => (hint.textContent = `${base()} · 지금 ${SkpDemo.LANGUAGE_NAMES[code] || code}`),
       });
-      document.getElementById("hint").textContent = `배열 ${qs.get("layout") || "shuffle"} · ${device === "ios" ? "iOS" : "Material"} 스타일 · kid ${demo.kid}`;
+      const base = () => `배열 ${qs.get("layout") || "shuffle"} · ${device === "ios" ? "iOS" : "Material"} 스타일 · 언어 ${SkpDemo.languageLabel(SkpDemo.parseLangs(qs.get("langs")))} · kid ${demo.kid}`;
+      hint.textContent = base();
       window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx };
       document.getElementById("login").addEventListener("submit", async (e) => {
         e.preventDefault();

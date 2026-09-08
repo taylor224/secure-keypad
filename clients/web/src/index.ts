@@ -14,6 +14,7 @@ import {
   openRelayout,
   openSession,
   ProtocolError,
+  type KeypadLanguage,
   type KeypadType,
   type LayoutSet,
   type OpenSession,
@@ -40,12 +41,20 @@ export interface SecureKeypadConfig {
   strict?: boolean;
   type: KeypadType;
   maxLen?: number;
+  /**
+   * Keyboard languages requested for QWERTY keypads, in switch order (the first is shown initially),
+   * e.g. ["en", "ko"] or ["ko"]. The server may override it; when neither side says anything the server
+   * installs ["en", "ko"]. With two or more languages the keypad shows a globe key that cycles them.
+   */
+  languages?: (KeypadLanguage | string)[];
+  /** Space-bar labels per language code when several are installed (default: English / 한국어). */
+  languageNames?: Record<string, string>;
   /** "auto" picks iOS style on Apple devices and Material elsewhere. */
   style?: "auto" | Style;
   theme?: "auto" | ThemeName;
   themeOverrides?: Partial<ThemeTokens>;
   haptics?: boolean;
-  /** Key popups: "auto" (touch pointers only, default), true (always, e.g. device simulations), false. */
+  /** Key popups: "auto" (touch pointers only), true (always, e.g. device simulations), false (default). The pressed key always changes colour. */
   popups?: boolean | "auto";
   /** Extra bottom padding in CSS px under the keys (home indicator / gesture bar), added to the safe-area inset. */
   safeAreaBottom?: number;
@@ -65,7 +74,7 @@ export interface SecureKeypadConfig {
   mount?: HTMLElement;
 }
 
-export type SecureKeypadEvent = "open" | "close" | "ready" | "change" | "done" | "submit" | "error" | "expire";
+export type SecureKeypadEvent = "open" | "close" | "ready" | "change" | "done" | "submit" | "error" | "expire" | "lang";
 
 export interface SecureKeypadEvents {
   open: void;
@@ -77,6 +86,8 @@ export interface SecureKeypadEvents {
   submit: { payload: string; length: number };
   error: { error: Error };
   expire: void;
+  /** The user switched keyboard language. */
+  lang: { lang: string };
 }
 
 export interface SecureKeypad {
@@ -87,6 +98,10 @@ export interface SecureKeypad {
   readonly isOpen: boolean;
   readonly ready: boolean;
   readonly length: number;
+  /** Current keyboard language code ("en", "ko", …), or null for number pads / before the first layout. */
+  readonly language: string | null;
+  /** Switches to one of the installed languages; returns false if the current layout does not offer it. */
+  setLanguage(code: string): boolean;
   /** Encrypts the taps and consumes the session. Synchronous. Throws if no session is ready. */
   submit(): string;
   /** Drops the current session and typed input; a new session is created lazily (or now if prefetch is on). */
@@ -149,10 +164,11 @@ export function createSecureKeypad(config: SecureKeypadConfig): SecureKeypad {
     style,
     theme: theme(),
     haptics: config.haptics ?? true,
-    popups: config.popups ?? "auto",
+    popups: config.popups ?? false,
     safeAreaBottom: config.safeAreaBottom ?? 0,
     accessory: config.accessory === "always" || (config.accessory !== "never" && config.type === "number"),
     doneLabel: config.doneLabel ?? "Done",
+    languageNames: config.languageNames ?? {},
     desktop,
     onTap: (tap) => {
       if (!session || session.consumed) return;
@@ -171,6 +187,7 @@ export function createSecureKeypad(config: SecureKeypadConfig): SecureKeypad {
       emit("done", { length: taps.length });
       if (config.closeOnDone !== false) api.close();
     },
+    onLang: (lang) => emit("lang", { lang }),
     onOutsidePress: () => api.close(),
   });
 
@@ -235,7 +252,7 @@ export function createSecureKeypad(config: SecureKeypadConfig): SecureKeypad {
       const keys = generateClientKeys();
       const vp = viewport();
       lastViewport = vp;
-      const request = buildSessionRequest(keys, config.type, vp, config.maxLen);
+      const request = buildSessionRequest(keys, config.type, vp, config.maxLen, config.type === "qwerty" ? config.languages : undefined);
       const response = await post<SessionResponse>(config.sessionUrl, request);
       if (destroyed) return;
       const s = openSession(response, keys, config.serverPublicKey ?? null);
@@ -370,6 +387,14 @@ export function createSecureKeypad(config: SecureKeypadConfig): SecureKeypad {
     },
     get length() {
       return taps.length;
+    },
+    get language() {
+      return ui.language;
+    },
+    setLanguage(code) {
+      const ok = ui.setLanguage(code);
+      if (ok) emit("lang", { lang: code });
+      return ok;
     },
     submit() {
       if (!session || session.consumed) throw new ProtocolError("no session: call open() or reset() first", "CONSUMED");

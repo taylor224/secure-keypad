@@ -18,6 +18,7 @@ val keypad = SecureKeypad(this, SecureKeypad.Config(
     serverPublicKey = "BASE64 from `skp-keygen --pubkey master.key`",
     type = KeypadType.NUMBER,     // or KeypadType.QWERTY
     maxLen = 6,
+    languages = listOf("ko", "en"),   // QWERTY only: Korean first, globe key switches; omit → server default (en, ko)
     theme = ThemeMode.AUTO,       // LIGHT / DARK
     haptics = true, sound = true, showPopup = true,
     headers = mapOf("Authorization" to "Bearer …"),   // optional
@@ -45,9 +46,10 @@ ever contains bullets.
   default 180 s); the library resets and fetches a new one, calling `onError` with code `EXPIRED`.
 - **Relayout**: when the panel width changes (rotation, multi-window) the library requests a relayout;
   taps made before keep their generation and stay valid.
-- **Keys**: shift is one-shot, double tap for caps lock; `?123` / `=\<` / `ABC` switch layers;
-  backspace repeats while held. Only character and space taps are recorded; control keys never leave
-  the device.
+- **Keys**: shift is one-shot, double tap for caps lock; `?123` / `=\<` / `ABC` switch layers; the globe
+  key cycles the installed languages (`onLanguageChange`, `language`, `setLanguage`) and the space bar shows
+  the current one; backspace repeats while held. Only character and space taps are recorded; control keys
+  never leave the device. Korean jamo are composed into syllables by the server.
 - **Feedback**: darkened key, preview popup above character keys (Gboard style), haptic
   `KEYBOARD_TAP` and the system key-press sound (both follow the user's system settings and can be
   disabled in `Config`).

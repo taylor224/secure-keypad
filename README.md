@@ -4,14 +4,19 @@ Open-source secure keypad: the server renders per-session shuffled keypads, the 
 keyboard and sends back only encrypted tap coordinates, and the server SDK turns them into the typed value.
 The client never knows what was typed; nothing secret survives the session.
 
-Playground: <https://taylor224.github.io/secure-keypad/> — a normal web page plus iPhone and Pixel simulations. With
+Keyboards: number pad and QWERTY with **English + Korean (2-set / 두벌식)** by default, switched with a
+globe key; Hangul syllables are composed on the server ([spec/HANGUL.md](spec/HANGUL.md)). The language set
+is chosen by the server (`languages: ["ko", "en"]`), else requested by the client, else `en, ko`.
+
+Playground: <https://taylor224.github.io/secure-keypad/> — a normal web page, iPhone and Pixel simulations, and
+a page on the native iOS / Android SDK examples. With
 no backend configured the page runs the server SDK's WebAssembly build in-browser (a demo of the mechanics, not of
 the security model); point it at a real example server with `?api=…` (see [examples/server-node](examples/server-node/README.md)). Design plan: [docs/PLAN.md](docs/PLAN.md) (Korean). Specification: [spec/PROTOCOL.md](spec/PROTOCOL.md),
-[spec/LAYOUT.md](spec/LAYOUT.md), [spec/THREAT-MODEL.md](spec/THREAT-MODEL.md).
+[spec/LAYOUT.md](spec/LAYOUT.md), [spec/HANGUL.md](spec/HANGUL.md), [spec/THREAT-MODEL.md](spec/THREAT-MODEL.md).
 
 | Component | Path | Status |
 |---|---|---|
-| C core (`libskp`) | `core/` | done: crypto, sealed sessions, layouts, glyph sprites, `skp-keygen`; vector/API/render/memory-residue tests |
+| C core (`libskp`) | `core/` | done: crypto, sealed sessions, layouts (en/ko), Hangul composition, glyph sprites, `skp-keygen`; vector/API/render/Hangul/memory-residue tests |
 | Node server SDK | `bindings/node` | done: N-API addon, `SecureKeypadServer`, stores, vitest round trips |
 | Python server SDK | `bindings/python` | done: cffi extension, `SecureKeypadServer`, pytest |
 | Java server SDK | `bindings/java` | done: JNI, `SecureKeypadServer`, JUnit |
@@ -19,7 +24,7 @@ the security model); point it at a real example server with `?api=…` (see [exa
 | React bindings | `clients/react` | done: provider, hook, `SecureKeypadInput` |
 | iOS client | `clients/ios` | done: Swift Package (CryptoKit, `UIInputView`), simulator tests |
 | Android client | `clients/android` | done: AAR (BouncyCastle), demo app, JVM vector tests |
-| Reference implementation and vectors | `tools/reference`, `spec/vectors` | done: 7 vectors replayed by every implementation |
+| Reference implementation and vectors | `tools/reference`, `spec/vectors` | done: 11 vectors (+ Hangul composition cases) replayed by every implementation |
 | WebAssembly server | `bindings/wasm` | done: Emscripten build of the core for the zero-backend playground / addon-less hosts |
 | Examples | `examples/` | Express (+ web playground + Playwright E2E), FastAPI, JDK HttpServer |
 
@@ -41,5 +46,5 @@ python -m pytest -q tools/reference/test_ref.py && python tools/reference/gen_ve
 
 Each package directory has its own README with build, test and integration instructions.
 
-License: Apache-2.0. Bundled fonts: Inter (SIL OFL 1.1), Roboto (Apache-2.0). Bundled code: libsodium (ISC),
-stb (MIT / public domain), cJSON (MIT).
+License: Apache-2.0. Bundled fonts: Inter (SIL OFL 1.1), Roboto (Apache-2.0), Noto Sans KR Hangul-jamo subset
+(SIL OFL 1.1). Bundled code: libsodium (ISC), stb (MIT / public domain), cJSON (MIT).

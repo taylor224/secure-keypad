@@ -35,6 +35,8 @@ import { createSecureKeypad } from "@secure-keypad/web";
 | `serverPublicKey` | — | Ed25519 public key (base64). Strongly recommended; `strict: true` makes it mandatory |
 | `type` | required | `"qwerty"` or `"number"` |
 | `maxLen` | 32 / 16 | maximum characters (the server caps it) |
+| `languages` | server default (`["en", "ko"]`) | QWERTY keyboard languages in switch order, e.g. `["ko", "en"]` or `["en"]`; the server may override. Two or more show a globe key |
+| `languageNames` | English / 한국어 | space-bar labels per language code |
 | `style` | `"auto"` | `"ios"` on Apple devices, `"material"` elsewhere |
 | `theme` | `"auto"` | follows `prefers-color-scheme`; `themeOverrides` replaces colour tokens |
 | `haptics`, `popups` | `true` | vibration on Android touch; key popup bubbles on touch |
@@ -49,16 +51,18 @@ import { createSecureKeypad } from "@secure-keypad/web";
 - `open()` / `close()` / `isOpen`
 - `submit(): string` — encrypts the taps, **consumes the session**, returns the payload. Synchronous.
 - `reset()` — drop the session and typed input; a new session is created lazily.
-- `length`, `ready`
-- `on("open" | "close" | "ready" | "change" | "done" | "submit" | "error" | "expire", handler)`
+- `length`, `ready`, `language` (current keyboard language code), `setLanguage(code)`
+- `on("open" | "close" | "ready" | "change" | "done" | "submit" | "error" | "expire" | "lang", handler)`
 - `destroy()`
 
 ## Behaviour worth knowing
 
 - The keypad surface is a canvas sized in device pixels exactly as the server rendered it; glyph tiles are
   blitted 1:1, so nothing is stretched on any DPR. Rotation and resizes trigger a relayout.
-- Only character taps are recorded; shift, mode switches and Done are handled locally, backspace pops.
-  Taps are recorded at key centres.
+- Only character taps are recorded; shift, mode switches, the globe (language) key and Done are handled
+  locally, backspace pops. Taps are recorded at key centres.
+- Korean input: the keypad shows the 2-set jamo layout; the server composes syllables (backspace removes one
+  jamo, as on native keyboards). The page never sees jamo either.
 - Sessions expire (server TTL, 180 s by default). With nothing typed the session renews silently; with
   input pending an `expire` event fires and the input is cleared.
 - After `submit()` a new session is required (`open()` or `reset()`), including after a failed login.

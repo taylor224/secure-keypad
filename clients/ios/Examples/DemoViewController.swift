@@ -40,6 +40,7 @@ final class DemoViewController: UIViewController {
             serverPublicKey: "REPLACE_WITH_OUTPUT_OF_skp-keygen --pubkey")
         config.relayoutURL = URL(string: "https://api.example.com/keypad/relayout")
         config.maxLen = 6
+        // for a QWERTY field: config.languages = ["ko", "en"]  (Korean first; the globe key switches to English)
         keypad = SecureKeypad(config: config)
         keypad.onChange = { [weak self] count in self?.button.isEnabled = count == 6 }
         keypad.onDone = { [weak self] in self?.signIn() }

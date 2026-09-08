@@ -25,8 +25,11 @@ export type Role =
   | "mode_sym1"
   | "mode_sym2"
   | "done"
-  | "blank";
+  | "blank"
+  | "lang";
 export type Mode = "lower" | "upper" | "sym1" | "sym2" | "number";
+/** Keyboard language codes known to the server: "en" (Latin QWERTY), "ko" (Korean 2-set). */
+export type KeypadLanguage = "en" | "ko";
 
 export interface KeyRect {
   /** [x, y, w, h] in device pixels, relative to the keypad surface. */
@@ -37,9 +40,11 @@ export interface KeyRect {
 }
 
 export interface Layer {
-  /** (gen << 3) | mode */
+  /** (gen << 3) | slot — opaque to the client, echoed with every tap made on this layer */
   id: number;
   mode: Mode;
+  /** Language of a letter layer ("lower" / "upper"); absent on symbol and number layers. */
+  lang?: string;
   keys: KeyRect[];
 }
 
@@ -59,6 +64,8 @@ export interface LayoutSet {
   gen: number;
   maxLen: number;
   exp: number;
+  /** Languages of the letter layers in switch order (empty for number pads). */
+  langs?: string[];
   layouts: Layer[];
   tile: SpriteInfo;
   popup: SpriteInfo;
@@ -200,12 +207,19 @@ export interface SessionRequest {
   kp: string;
   type: KeypadType;
   viewport: Viewport;
-  opts?: { maxLen?: number };
+  opts?: { maxLen?: number; langs?: string[] };
 }
 
-export function buildSessionRequest(keys: ClientKeys, type: KeypadType, viewport: Viewport, maxLen?: number): SessionRequest {
+/**
+ * Session request (spec §4.1). `langs` asks for keyboard languages in switch order; the server may
+ * override it and defaults to ["en", "ko"] when nobody says anything.
+ */
+export function buildSessionRequest(keys: ClientKeys, type: KeypadType, viewport: Viewport, maxLen?: number, langs?: readonly string[]): SessionRequest {
   const req: SessionRequest = { v: PROTOCOL_VERSION, kp: b64encode(keys.pk), type, viewport: { ...viewport } };
-  if (maxLen) req.opts = { maxLen };
+  const opts: { maxLen?: number; langs?: string[] } = {};
+  if (maxLen) opts.maxLen = maxLen;
+  if (langs && langs.length) opts.langs = [...langs];
+  if (opts.maxLen || opts.langs) req.opts = opts;
   return req;
 }
 
@@ -256,6 +270,7 @@ function parseLayout(json: string): LayoutSet {
     throw new ProtocolError("inner json", "BAD_RESPONSE");
   }
   if (l.v !== PROTOCOL_VERSION || !Array.isArray(l.layouts) || !l.tile || !l.popup) throw new ProtocolError("inner schema", "BAD_RESPONSE");
+  if (l.langs !== undefined && (!Array.isArray(l.langs) || l.langs.some((c) => typeof c !== "string"))) throw new ProtocolError("inner langs", "BAD_RESPONSE");
   return l;
 }
 
@@ -384,14 +399,17 @@ export function hitTest(layer: Layer, x: number, y: number): number {
   return best;
 }
 
-export function findLayer(layout: LayoutSet, mode: Mode): Layer | undefined {
-  return layout.layouts.find((l) => l.mode === mode);
+/** Finds a layer by mode and, for letter layers, language code. */
+export function findLayer(layout: LayoutSet, mode: Mode, lang?: string): Layer | undefined {
+  return layout.layouts.find((l) => l.mode === mode && (lang === undefined || l.lang === lang));
 }
 
-export const MODE_BITS: Record<Mode, number> = { lower: 0, upper: 1, sym1: 2, sym2: 3, number: 4 };
-
-export function layoutId(gen: number, mode: Mode): number {
-  return (gen << 3) | MODE_BITS[mode];
+/** Layout id of the layer at `slot` in generation `gen` (spec §4.5); ids come from the server, this is for tests. */
+export function layoutId(gen: number, slot: number): number {
+  return (gen << 3) | slot;
 }
+
+/** Display names for the space-bar label when several languages are installed. */
+export const LANGUAGE_NAMES: Record<string, string> = { en: "English", ko: "한국어" };
 
 export { u32be as _u32be };

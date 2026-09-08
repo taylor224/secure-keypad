@@ -22,6 +22,8 @@ from nacl import bindings as nb
 from nacl.exceptions import CryptoError
 from nacl.signing import SigningKey, VerifyKey
 
+import hangul
+
 VERSION = 1
 LABEL_MASTER = b"skp/v1/master"
 LABEL_SESSION_SALT = b"skp/v1"
@@ -41,6 +43,11 @@ STYLE_NAMES = {v: k for k, v in STYLES.items()}
 PLATFORMS = {"ios": 1, "android": 2, "web": 3}
 MODE_LOWER, MODE_UPPER, MODE_SYM1, MODE_SYM2, MODE_NUMBER = 0, 1, 2, 3, 4
 MODE_NAMES = {0: "lower", 1: "upper", 2: "sym1", 3: "sym2", 4: "number"}
+LANG_EN, LANG_KO = 1, 2
+LANG_IDS = {"en": LANG_EN, "ko": LANG_KO}
+LANG_CODES = {v: k for k, v in LANG_IDS.items()}
+DEFAULT_LANGS = [LANG_EN, LANG_KO]
+MAX_LANGS = 3
 DEFAULT_TTL = 180
 DEFAULT_CAP = 256
 MAX_GENS = 32
@@ -227,10 +234,38 @@ METRICS = {
                              side_key=52000, mode_key=56000, num_key_h=44000, glyph=22000, popup_glyph=30000),
 }
 
-ROWS_LOWER = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+# letter rows per language (LAYOUT.md §3) and the shift mapping of each
+LANG_ROWS = {
+    LANG_EN: ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
+    LANG_KO: ["ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ"],
+}
+LANG_SHIFT = {
+    LANG_EN: None,  # ASCII uppercase
+    LANG_KO: {"ㅂ": "ㅃ", "ㅈ": "ㅉ", "ㄷ": "ㄸ", "ㄱ": "ㄲ", "ㅅ": "ㅆ", "ㅐ": "ㅒ", "ㅔ": "ㅖ"},
+}
 ROWS_SYM1 = ["1234567890", "-/:;()$&@\"", ".,?!'"]
 ROWS_SYM2 = ["[]{}#%^*+=", "_\\|~<>€£¥•", ".,?!'"]
 DIGITS = "0123456789"
+
+
+def shifted(lang: int, ch: str) -> str:
+    m = LANG_SHIFT[lang]
+    return ch.upper() if m is None else m.get(ch, ch)
+
+
+def parse_langs(value) -> list:
+    """Server option: list of codes or a comma-separated string → list of ids. UNSUPPORTED on bad input."""
+    if isinstance(value, str):
+        value = [v.strip() for v in value.split(",")]
+    if not isinstance(value, list) or not (1 <= len(value) <= MAX_LANGS):
+        raise SkpError("UNSUPPORTED", "languages")
+    ids = []
+    for code in value:
+        lid = LANG_IDS.get(code) if isinstance(code, str) else None
+        if lid is None or lid in ids:
+            raise SkpError("UNSUPPORTED", f"language {code!r}")
+        ids.append(lid)
+    return ids
 
 
 def rnd(a: int, b: int) -> int:
@@ -264,6 +299,7 @@ class Key:
 class Layer:
     mode: int
     keys: list
+    lang: int = 0  # language id for letter layers, 0 for symbol / number layers
 
 
 @dataclass
@@ -273,23 +309,24 @@ class Layout:
     W: int
     H: int
     dpr_milli: int
-    layers: list
+    layers: list  # layers[slot]
     tile_w: int
     tile_h: int
     tile_count: int
     popup_w: int
     popup_h: int
+    langs: list = field(default_factory=list)
 
 
-def shuffle_charsets(type_: int, policy: int, blank: int, seed: bytes):
-    """Returns ({mode: rows-of-chars}) for qwerty or (list of 12 cell chars or None/'\b') for number."""
+def shuffle_charsets(type_: int, policy: int, blank: int, langs: list, seed: bytes):
+    """Returns (letters-per-language, sym1 rows, sym2 rows) for qwerty or the 12 number cells (None/'\b')."""
     d = Drbg(seed)
     if type_ == TYPE_QWERTY:
-        lower = [list(r) for r in ROWS_LOWER]
+        letters = [[list(r) for r in LANG_ROWS[lang]] for lang in langs]
         sym1 = [list(r) for r in ROWS_SYM1]
         sym2 = [list(r) for r in ROWS_SYM2]
         if policy == POLICIES["shuffle"]:
-            for layer in (lower, sym1, sym2):
+            for layer in letters + [sym1, sym2]:
                 for r in layer:
                     d.fy(r)
         elif policy == POLICIES["full"]:
@@ -300,11 +337,11 @@ def shuffle_charsets(type_: int, policy: int, blank: int, seed: bytes):
                     out.append(flat[pos:pos + len(r)])
                     pos += len(r)
                 return out
-            lower, sym1, sym2 = full(lower), full(sym1), full(sym2)
+            letters = [full(rows) for rows in letters]
+            sym1, sym2 = full(sym1), full(sym2)
         elif policy != POLICIES["fixed"]:
             raise SkpError("UNSUPPORTED", "policy")
-        upper = [[c.upper() for c in r] for r in lower]
-        return {MODE_LOWER: lower, MODE_UPPER: upper, MODE_SYM1: sym1, MODE_SYM2: sym2}
+        return letters, sym1, sym2
     if type_ == TYPE_NUMBER:
         digits = d.fy(list(DIGITS))
         b = d.uniform(11) if blank == BLANKS["random"] else 9
@@ -320,12 +357,17 @@ def shuffle_charsets(type_: int, policy: int, blank: int, seed: bytes):
     raise SkpError("UNSUPPORTED", "type")
 
 
-def build_layout(type_: int, policy: int, blank: int, style: int, W: int, dpr_milli: int, seed: bytes) -> Layout:
+def build_layout(type_: int, policy: int, blank: int, style: int, langs: list, W: int, dpr_milli: int, seed: bytes) -> Layout:
     m = METRICS[style]
     ix, g, kh, sk = px(m["inset_x"], dpr_milli), px(m["gap"], dpr_milli), px(m["key_h"], dpr_milli), px(m["side_key"], dpr_milli)
     top, pitch, H = px(m["top"], dpr_milli), px(m["pitch"], dpr_milli), px(m["H"], dpr_milli)
     ys = [top + r * pitch for r in range(4)]
-    charsets = shuffle_charsets(type_, policy, blank, seed)
+    if type_ == TYPE_QWERTY:
+        if not (1 <= len(langs) <= MAX_LANGS) or len(set(langs)) != len(langs) or any(lang not in LANG_ROWS for lang in langs):
+            raise SkpError("UNSUPPORTED", "languages")
+    else:
+        langs = []
+    charsets = shuffle_charsets(type_, policy, blank, langs, seed)
     layers = []
     if type_ == TYPE_QWERTY:
         # geometry shared by all layers
@@ -342,26 +384,46 @@ def build_layout(type_: int, policy: int, blank: int, style: int, W: int, dpr_mi
         left2 = [ix, ys[2], sk, kh]
         backspace2 = [W - ix - sk, ys[2], sk, kh]
         mw = min(px(m["mode_key"], dpr_milli), rnd(W, 4))
-        mode3 = [ix, ys[3], mw, kh]
-        space3 = [ix + mw + g, ys[3], W - 2 * ix - 2 * mw - 2 * g, kh]
+        has_lang = len(langs) >= 2
+        lw = min(sk, mw)
+        if has_lang:
+            mode3 = [ix, ys[3], lw, kh]
+            lang3 = [ix + lw + g, ys[3], lw, kh]
+            space3 = [ix + 2 * lw + 2 * g, ys[3], W - 2 * ix - 2 * lw - mw - 3 * g, kh]
+        else:
+            mode3 = [ix, ys[3], mw, kh]
+            lang3 = None
+            space3 = [ix + mw + g, ys[3], W - 2 * ix - 2 * mw - 2 * g, kh]
         done3 = [W - ix - mw, ys[3], mw, kh]
-        for mode in (MODE_LOWER, MODE_UPPER, MODE_SYM1, MODE_SYM2):
-            rows = charsets[mode]
-            keys = []
-            keys += [Key(r, "char", c) for r, c in zip(row0, rows[0])]
-            keys += [Key(r, "char", c) for r, c in zip(row1 if mode in (MODE_LOWER, MODE_UPPER) else row1_sym, rows[1])]
-            if mode in (MODE_LOWER, MODE_UPPER):
-                keys.append(Key(left2, "shift"))
-                keys += [Key(r, "char", c) for r, c in zip(letters2, rows[2])]
-                keys.append(Key(backspace2, "backspace"))
-                keys.append(Key(mode3, "mode_sym1"))
-            else:
-                keys.append(Key(left2, "mode_sym2" if mode == MODE_SYM1 else "mode_sym1"))
-                keys += [Key(r, "char", c) for r, c in zip(syms2, rows[2])]
-                keys.append(Key(backspace2, "backspace"))
-                keys.append(Key(mode3, "mode_abc"))
+        letters, sym1, sym2 = charsets
+
+        def bottom(keys, mode_role):
+            keys.append(Key(mode3, mode_role))
+            if has_lang:
+                keys.append(Key(lang3, "lang"))
             keys.append(Key(space3, "space", " "))
             keys.append(Key(done3, "done"))
+
+        for lang, rows in zip(langs, letters):
+            for mode in (MODE_LOWER, MODE_UPPER):
+                up = mode == MODE_UPPER
+                ch = (lambda c: shifted(lang, c)) if up else (lambda c: c)
+                keys = []
+                keys += [Key(r, "char", ch(c)) for r, c in zip(row0, rows[0])]
+                keys += [Key(r, "char", ch(c)) for r, c in zip(row1, rows[1])]
+                keys.append(Key(left2, "shift"))
+                keys += [Key(r, "char", ch(c)) for r, c in zip(letters2, rows[2])]
+                keys.append(Key(backspace2, "backspace"))
+                bottom(keys, "mode_sym1")
+                layers.append(Layer(mode, keys, lang))
+        for mode, rows in ((MODE_SYM1, sym1), (MODE_SYM2, sym2)):
+            keys = []
+            keys += [Key(r, "char", c) for r, c in zip(row0, rows[0])]
+            keys += [Key(r, "char", c) for r, c in zip(row1_sym, rows[1])]
+            keys.append(Key(left2, "mode_sym2" if mode == MODE_SYM1 else "mode_sym1"))
+            keys += [Key(r, "char", c) for r, c in zip(syms2, rows[2])]
+            keys.append(Key(backspace2, "backspace"))
+            bottom(keys, "mode_abc")
             layers.append(Layer(mode, keys))
         tile_h = kh
     else:
@@ -388,26 +450,31 @@ def build_layout(type_: int, policy: int, blank: int, style: int, W: int, dpr_mi
                 t += 1
                 tile_w = max(tile_w, k.r[2])
     popup_w = min(rnd(3 * tile_w, 2), rnd(3 * tile_h, 2))
-    return Layout(type_, style, W, H, dpr_milli, layers, tile_w, tile_h, t, popup_w, rnd(7 * tile_h, 5))
+    return Layout(type_, style, W, H, dpr_milli, layers, tile_w, tile_h, t, popup_w, rnd(7 * tile_h, 5), list(langs))
 
 
-def layout_id(gen: int, mode: int) -> int:
-    return (gen << 3) | mode
+def layout_id(gen: int, slot: int) -> int:
+    return (gen << 3) | slot
 
 
 def inner_json(layout: Layout, gen: int, max_len: int, exp: int) -> dict:
     layers = []
-    for layer in layout.layers:
+    for slot, layer in enumerate(layout.layers):
         keys = []
         for k in layer.keys:
             o = {"r": list(k.r), "role": k.role}
             if k.role == "char":
                 o["t"] = k.t
             keys.append(o)
-        layers.append({"id": layout_id(gen, layer.mode), "mode": MODE_NAMES[layer.mode], "keys": keys})
+        lo = {"id": layout_id(gen, slot), "mode": MODE_NAMES[layer.mode]}
+        if layer.lang:
+            lo["lang"] = LANG_CODES[layer.lang]
+        lo["keys"] = keys
+        layers.append(lo)
     return {
         "v": VERSION, "type": TYPE_NAMES[layout.type], "style": STYLE_NAMES[layout.style],
         "w": layout.W, "h": layout.H, "gen": gen, "maxLen": max_len, "exp": exp,
+        "langs": [LANG_CODES[lang] for lang in layout.langs],
         "layouts": layers,
         "tile": {"w": layout.tile_w, "h": layout.tile_h, "cols": 10, "count": layout.tile_count},
         "popup": {"w": layout.popup_w, "h": layout.popup_h, "cols": 10, "count": layout.tile_count},
@@ -471,17 +538,19 @@ class State:
     k_c2s: bytes
     s2c_ctr: int
     gens: list = field(default_factory=list)
+    langs: list = field(default_factory=list)
 
 
-HEAD_FMT = ">BBBBBBHHQQ16s32s32s32sQ"
+HEAD_FMT = ">BBBBBBHHQQ16s32s32s32sQB3s"
 GEN_FMT = ">32sHHB"
-HEAD_SIZE = struct.calcsize(HEAD_FMT)   # 146
+HEAD_SIZE = struct.calcsize(HEAD_FMT)   # 150
 GEN_SIZE = struct.calcsize(GEN_FMT)     # 37
 
 
 def pack_state(st: State) -> bytes:
+    langs = bytes(st.langs) + bytes(MAX_LANGS - len(st.langs))
     out = struct.pack(HEAD_FMT, 1, st.type, st.policy, st.blank, st.style, len(st.gens), st.max_len, 0,
-                      st.created, st.expires, st.sid, st.ctx_hash, st.k_s2c, st.k_c2s, st.s2c_ctr)
+                      st.created, st.expires, st.sid, st.ctx_hash, st.k_s2c, st.k_c2s, st.s2c_ctr, len(st.langs), langs)
     for g in st.gens:
         out += struct.pack(GEN_FMT, g.seed, g.W, g.dpr_milli, g.platform)
     return out
@@ -491,15 +560,22 @@ def unpack_state(buf: bytes) -> State:
     if len(buf) < HEAD_SIZE:
         raise SkpError("TAMPERED", "state short")
     (v, type_, policy, blank, style, n, max_len, flags, created, expires, sid, ctx_hash,
-     k_s2c, k_c2s, s2c_ctr) = struct.unpack(HEAD_FMT, buf[:HEAD_SIZE])
+     k_s2c, k_c2s, s2c_ctr, nlangs, langs_raw) = struct.unpack(HEAD_FMT, buf[:HEAD_SIZE])
     if v != 1 or flags != 0 or not (1 <= n <= MAX_GENS) or len(buf) != HEAD_SIZE + n * GEN_SIZE:
         raise SkpError("TAMPERED", "state header")
+    if nlangs > MAX_LANGS or any(langs_raw[i] != 0 for i in range(nlangs, MAX_LANGS)):
+        raise SkpError("TAMPERED", "state languages")
+    langs = list(langs_raw[:nlangs])
+    if any(lang not in LANG_CODES for lang in langs) or len(set(langs)) != nlangs:
+        raise SkpError("TAMPERED", "state languages")
+    if (type_ == TYPE_QWERTY and nlangs < 1) or (type_ == TYPE_NUMBER and nlangs != 0):
+        raise SkpError("TAMPERED", "state languages")
     gens = []
     for i in range(n):
         off = HEAD_SIZE + i * GEN_SIZE
         seed, W, dpr_milli, platform = struct.unpack(GEN_FMT, buf[off:off + GEN_SIZE])
         gens.append(Gen(seed, W, dpr_milli, platform))
-    return State(type_, policy, blank, style, max_len, created, expires, sid, ctx_hash, k_s2c, k_c2s, s2c_ctr, gens)
+    return State(type_, policy, blank, style, max_len, created, expires, sid, ctx_hash, k_s2c, k_c2s, s2c_ctr, gens, langs)
 
 
 def seal(mk: MasterKeys, st: State, nonce24: bytes) -> bytes:
@@ -585,6 +661,22 @@ def create_session(mk: MasterKeys, request: dict, opts: Optional[dict] = None, h
     max_len = min(max(max_len, 1), cap)
     ctx = opts.get("ctx")
     ctx_hash = sha256(ctx.encode("utf-8")) if ctx else bytes(32)
+    # languages: the integrator's option, else the client's opts.langs, else Korean + English
+    langs = []
+    if type_ == TYPE_QWERTY:
+        if opts.get("languages"):
+            langs = parse_langs(opts["languages"])
+        elif "langs" in ropts and ropts["langs"] is not None:
+            rl = ropts["langs"]
+            if not isinstance(rl, list) or not (1 <= len(rl) <= MAX_LANGS):
+                raise SkpError("BAD_REQUEST", "opts.langs")
+            for code in rl:
+                lid = LANG_IDS.get(code) if isinstance(code, str) else None
+                if lid is None or lid in langs:
+                    raise SkpError("BAD_REQUEST", "opts.langs")
+                langs.append(lid)
+        else:
+            langs = list(DEFAULT_LANGS)
 
     now = _now(hooks)
     sid = hooks.sid if hooks and hooks.sid else _rand(16)
@@ -597,13 +689,13 @@ def create_session(mk: MasterKeys, request: dict, opts: Optional[dict] = None, h
     k_s2c = hkdf_expand(prk, b"s2c" + c_pk + s_pk, 32)
     k_c2s = hkdf_expand(prk, b"c2s" + c_pk + s_pk, 32)
 
-    layout = build_layout(type_, policy, blank, style, W, dpr_milli, seed)
+    layout = build_layout(type_, policy, blank, style, langs, W, dpr_milli, seed)
     inner = inner_json(layout, 0, max_len, ttl)
     inner_bytes = canonical_json(inner)
     ct = aead_encrypt(k_s2c, nonce12(0), AAD_SESSION + sid, frame(inner_bytes))
     sig = mk.sk_sign.sign(SIG_LABEL + mk.kid.encode("ascii") + sid + c_pk + s_pk + sha256(ct)).signature
     st = State(type_, policy, blank, style, max_len, now, now + ttl, sid, ctx_hash, k_s2c, k_c2s, 1,
-               [Gen(seed, W, dpr_milli, platform)])
+               [Gen(seed, W, dpr_milli, platform)], langs)
     response = {"v": VERSION, "sid": b64url(sid), "kid": mk.kid, "sp": b64(s_pk), "sig": b64(sig), "ct": b64(ct)}
     debug = {"k_s2c": k_s2c, "k_c2s": k_c2s, "inner": inner, "layout": layout, "state": st, "s_pk": s_pk}
     return response, seal(mk, st, nonce24), debug
@@ -627,7 +719,7 @@ def relayout(mk: MasterKeys, sealed: bytes, request: dict, hooks: Optional[Hooks
     W, dpr_milli, platform, _style = parse_viewport(request.get("viewport"))
     gen = len(st.gens)
     st.gens.append(Gen(st.gens[-1].seed, W, dpr_milli, platform))
-    layout = build_layout(st.type, st.policy, st.blank, st.style, W, dpr_milli, st.gens[-1].seed)
+    layout = build_layout(st.type, st.policy, st.blank, st.style, st.langs, W, dpr_milli, st.gens[-1].seed)
     inner = inner_json(layout, gen, st.max_len, st.expires - now)
     ct = aead_encrypt(st.k_s2c, nonce12(st.s2c_ctr), AAD_RELAYOUT + sid, frame(canonical_json(inner)))
     st.s2c_ctr += 1
@@ -675,25 +767,23 @@ def decrypt(mk: MasterKeys, sealed: bytes, payload: dict, ctx: Optional[str] = N
         seq, lid, flags, x, y = struct.unpack(">HBBHH", rec)
         if seq != i or flags != 0:
             raise SkpError("TAMPERED", "record")
-        gen, mode = lid >> 3, lid & 7
+        gen, slot = lid >> 3, lid & 7
         if gen >= len(st.gens):
             raise SkpError("TAMPERED", "gen")
-        if st.type == TYPE_QWERTY and mode not in (0, 1, 2, 3):
-            raise SkpError("TAMPERED", "mode")
-        if st.type == TYPE_NUMBER and mode != MODE_NUMBER:
-            raise SkpError("TAMPERED", "mode")
         if gen not in layouts_cache:
             g = st.gens[gen]
-            layouts_cache[gen] = build_layout(st.type, st.policy, st.blank, st.style, g.W, g.dpr_milli, g.seed)
+            layouts_cache[gen] = build_layout(st.type, st.policy, st.blank, st.style, st.langs, g.W, g.dpr_milli, g.seed)
         layout = layouts_cache[gen]
+        if slot >= len(layout.layers):
+            raise SkpError("TAMPERED", "slot")
         if x >= layout.W or y >= layout.H:
             raise SkpError("TAMPERED", "coords")
-        layer = next(l for l in layout.layers if l.mode == mode)
-        key = hit_test(layer, x, y)
+        key = hit_test(layout.layers[slot], x, y)
         if key.role not in ("char", "space"):
             raise SkpError("TAMPERED", "non-character key")
         out.append(key.ch)
-    return "".join(out)
+    # Korean jamo compose into syllables (spec/HANGUL.md); other characters pass through
+    return hangul.compose("".join(out))
 
 
 # --------------------------------------------------------------------------- client
@@ -743,26 +833,33 @@ def client_build_input(k_c2s: bytes, sid: bytes, max_len: int, taps: list) -> di
 # --------------------------------------------------------------------------- helpers for tests / vectors
 
 def taps_for_text(layout: Layout, gen: int, text: str, offset=(0, 0)) -> list:
-    """Server-side helper: produce (layout_id, x, y) at key centres (plus offset) for a text."""
+    """Server-side helper: produce (layout_id, x, y) at key centres (plus offset) for a text.
+
+    Hangul syllables are decomposed into the jamo key presses that type them (hangul.decompose)."""
     taps = []
-    for ch in text:
+    for ch in hangul.decompose(text):
         found = None
-        for layer in layout.layers:
+        for slot, layer in enumerate(layout.layers):
             for k in layer.keys:
                 if k.role in ("char", "space") and k.ch == ch:
-                    found = (layer.mode, k)
+                    found = (slot, k)
                     break
             if found:
                 break
         if not found:
             raise ValueError(f"character {ch!r} not on keypad")
-        mode, k = found
+        slot, k = found
         x = k.r[0] + k.r[2] // 2 + offset[0]
         y = k.r[1] + k.r[3] // 2 + offset[1]
-        taps.append((layout_id(gen, mode), x, y))
+        taps.append((layout_id(gen, slot), x, y))
     return taps
 
 
-def find_key(layout: Layout, mode: int, role: str) -> Key:
-    layer = next(l for l in layout.layers if l.mode == mode)
+def find_layer(layout: Layout, mode: int, lang: int = 0) -> tuple:
+    """(slot, layer) for a mode and language id (0 for symbol / number layers)."""
+    return next((slot, l) for slot, l in enumerate(layout.layers) if l.mode == mode and l.lang == lang)
+
+
+def find_key(layout: Layout, mode: int, role: str, lang: int = 0) -> Key:
+    _, layer = find_layer(layout, mode, lang)
     return next(k for k in layer.keys if k.role == role)

@@ -42,6 +42,7 @@ GEN="$CACHE/gen"
 mkdir -p "$GEN"
 node "$ROOT/bindings/node/scripts/embed.js" "$CORE/fonts/Inter-Regular.ttf" "$GEN/skp_font_inter.c" skp_font_inter
 node "$ROOT/bindings/node/scripts/embed.js" "$CORE/fonts/Roboto-Regular.ttf" "$GEN/skp_font_roboto.c" skp_font_roboto
+node "$ROOT/bindings/node/scripts/embed.js" "$CORE/fonts/NotoSansKR-Hangul.ttf" "$GEN/skp_font_hangul.c" skp_font_hangul
 
 # ---- the module -----------------------------------------------------------------------------------
 DEFS="-DSKP_HAVE_ZLIB=1"
@@ -51,9 +52,9 @@ if [ "${SKP_WASM_TESTING:-0}" = "1" ]; then EXPORTS="$EXPORTS,_skp_test_set_hook
 
 emcc -O2 -std=gnu11 $DEFS \
   -I"$CORE/include" -I"$CORE/src" -I"$SODIUM_PREFIX/include" \
-  "$CORE/src/skp.c" "$CORE/src/skp_crypto.c" "$CORE/src/skp_layout.c" "$CORE/src/skp_render.c" \
+  "$CORE/src/skp.c" "$CORE/src/skp_crypto.c" "$CORE/src/skp_layout.c" "$CORE/src/skp_hangul.c" "$CORE/src/skp_render.c" \
   "$CORE/src/skp_state.c" "$CORE/src/skp_session.c" "$CORE/third_party/cJSON.c" \
-  "$GEN/skp_font_inter.c" "$GEN/skp_font_roboto.c" \
+  "$GEN/skp_font_inter.c" "$GEN/skp_font_roboto.c" "$GEN/skp_font_hangul.c" \
   "$SODIUM_PREFIX/lib/libsodium.a" \
   -sUSE_ZLIB=1 -sMODULARIZE=1 -sEXPORT_NAME=createSkpModule -sENVIRONMENT=web,worker,node \
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=33554432 -sFILESYSTEM=0 \

@@ -50,7 +50,7 @@ endif()
 # ---- embedded fonts ------------------------------------------------------------------------
 add_executable(skp_embed tools/embed.c)
 set(SKP_FONT_SOURCES)
-foreach(font Inter-Regular:skp_font_inter Roboto-Regular:skp_font_roboto)
+foreach(font Inter-Regular:skp_font_inter Roboto-Regular:skp_font_roboto NotoSansKR-Hangul:skp_font_hangul)
   string(REPLACE ":" ";" parts ${font})
   list(GET parts 0 fname)
   list(GET parts 1 sym)
@@ -66,7 +66,7 @@ endforeach()
 
 # ---- library ---------------------------------------------------------------------------------
 set(SKP_SOURCES
-  src/skp.c src/skp_crypto.c src/skp_layout.c src/skp_render.c src/skp_state.c src/skp_session.c
+  src/skp.c src/skp_crypto.c src/skp_layout.c src/skp_hangul.c src/skp_render.c src/skp_state.c src/skp_session.c
   third_party/cJSON.c ${SKP_FONT_SOURCES})
 
 add_library(skp_objects OBJECT ${SKP_SOURCES})
@@ -108,7 +108,7 @@ target_link_libraries(skp-keygen PRIVATE skp_static)
 # ---- tests -------------------------------------------------------------------------------------
 if(SKP_BUILD_TESTS)
   enable_testing()
-  foreach(t test_vectors test_render test_residue test_api)
+  foreach(t test_vectors test_render test_residue test_api test_hangul)
     add_executable(${t} tests/${t}.c)
     target_link_libraries(${t} PRIVATE skp_static)
     target_include_directories(${t} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${SODIUM_INCLUDE_DIRS})

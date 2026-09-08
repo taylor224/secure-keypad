@@ -28,7 +28,7 @@ final class Native {
 
     /** Returns {byte[] responseJson, byte[] sealed}. */
     static native Object[] createSession(long handle, byte[] requestJson, byte[] ctx, byte[] layout, byte[] blank,
-                                         int ttlSec, int maxLen);
+                                         int ttlSec, int maxLen, byte[] languages);
 
     /** Returns {byte[] responseJson, byte[] newSealed}. */
     static native Object[] relayout(long handle, byte[] sealed, byte[] requestJson);

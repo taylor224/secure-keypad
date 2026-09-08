@@ -53,7 +53,8 @@ static void check_sprite(const char *name, const uint8_t *png, size_t len, int c
     }
 }
 
-static void render_case(skp_ctx *ctx, const char *name, const char *type, const char *platform, double w, double dpr) {
+static void render_case(skp_ctx *ctx, const char *name, const char *type, const char *platform, double w, double dpr,
+                        const char *languages) {
     printf("render %s\n", name);
     uint8_t c_sk[32] = {3}, c_pk[32];
     crypto_scalarmult_base(c_pk, c_sk);
@@ -64,7 +65,8 @@ static void render_case(skp_ctx *ctx, const char *name, const char *type, const 
              kp, type, w, dpr, platform);
     free(kp);
     skp_buf resp = {0}, sealed = {0};
-    int rc = skp_session_create(ctx, req, 0, NULL, &resp, &sealed);
+    skp_session_opts opts = {NULL, NULL, NULL, 0, 0, languages};
+    int rc = skp_session_create(ctx, req, 0, &opts, &resp, &sealed);
     CHECK(rc == SKP_OK, "create: %s", skp_strerror(rc));
     if (rc)
         return;
@@ -90,11 +92,14 @@ int main(void) {
     cfg.master_key = "0f1e2d3c4b5a69788796a5b4c3d2e1f0f0e1d2c3b4a5968778695a4b3c2d1e0f";
     skp_ctx *ctx = NULL;
     CHECK(skp_init(&ctx, &cfg) == SKP_OK, "init");
-    render_case(ctx, "qwerty-ios-390x3", "qwerty", "ios", 390, 3);
-    render_case(ctx, "qwerty-material-360x2.625", "qwerty", "android", 360, 2.625);
-    render_case(ctx, "number-ios-390x3", "number", "ios", 390, 3);
-    render_case(ctx, "number-material-412x2.625", "number", "android", 412, 2.625);
-    render_case(ctx, "qwerty-web-1024x1", "qwerty", "web", 1024, 1);
+    render_case(ctx, "qwerty-ios-390x3", "qwerty", "ios", 390, 3, "en");
+    render_case(ctx, "qwerty-material-360x2.625", "qwerty", "android", 360, 2.625, "en");
+    render_case(ctx, "number-ios-390x3", "number", "ios", 390, 3, NULL);
+    render_case(ctx, "number-material-412x2.625", "number", "android", 412, 2.625, NULL);
+    render_case(ctx, "qwerty-web-1024x1", "qwerty", "web", 1024, 1, "en");
+    /* Korean layers use the fallback font: every jamo cell must be inked */
+    render_case(ctx, "qwerty-ios-390x3-ko-en", "qwerty", "ios", 390, 3, NULL);
+    render_case(ctx, "qwerty-material-412x2.625-ko", "qwerty", "android", 412, 2.625, "ko");
     skp_free(ctx);
     printf("%d failures\n", g_failures);
     return g_failures ? 1 : 0;

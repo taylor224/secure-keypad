@@ -75,6 +75,8 @@ export interface DrawState {
   popupCovers: boolean;
   /** label of the Done key */
   doneLabel?: string;
+  /** label of the space bar (the current language's name when several are installed) */
+  spaceLabel?: string;
 }
 
 function isSpecial(role: Role): boolean {
@@ -89,8 +91,9 @@ const LABELS: Partial<Record<Role, string>> = {
   mode_sym2: "#+=",
 };
 
-function labelFor(role: Role, style: "ios" | "material", doneLabel?: string): string {
+function labelFor(role: Role, style: "ios" | "material", doneLabel?: string, spaceLabel?: string): string {
   if (role === "done" && doneLabel) return doneLabel;
+  if (role === "space" && spaceLabel) return spaceLabel;
   if (style === "material") {
     if (role === "mode_sym1") return "?123";
     if (role === "mode_sym2") return "=\\<";
@@ -115,6 +118,32 @@ function drawShift(ctx: Canvas2D, cx: number, cy: number, s: number, color: stri
     ctx.fillStyle = color;
     ctx.fill();
   }
+  ctx.stroke();
+}
+
+/** Globe icon of the language key (iOS / Gboard style): a circle with a meridian and two parallels. */
+function drawGlobe(ctx: Canvas2D, cx: number, cy: number, s: number, color: string): void {
+  const r = s * 0.5;
+  ctx.lineWidth = Math.max(1, s * 0.08);
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.moveTo(cx - r, cy);
+  ctx.lineTo(cx + r, cy);
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx, cy + r);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r * 0.42, r, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  const lat = r * 0.5;
+  const half = Math.sqrt(r * r - lat * lat);
+  ctx.beginPath();
+  ctx.moveTo(cx - half, cy - lat);
+  ctx.quadraticCurveTo(cx, cy - lat - r * 0.16, cx + half, cy - lat);
+  ctx.moveTo(cx - half, cy + lat);
+  ctx.quadraticCurveTo(cx, cy + lat + r * 0.16, cx + half, cy + lat);
   ctx.stroke();
 }
 
@@ -200,8 +229,11 @@ export function drawKeypad(p: DrawParams): void {
       case "backspace":
         drawBackspace(ctx, cx, cy, iconPx, textColor);
         break;
+      case "lang":
+        drawGlobe(ctx, cx, cy, iconPx, textColor);
+        break;
       default: {
-        const label = labelFor(key.role, layout.style, state.doneLabel);
+        const label = labelFor(key.role, layout.style, state.doneLabel, state.spaceLabel);
         if (label) {
           ctx.fillStyle = key.role === "done" && layout.style === "material" ? theme.keySpecialText : textColor;
           ctx.font = `${key.role === "space" ? 400 : 500} ${labelPx}px ${theme.font}`;

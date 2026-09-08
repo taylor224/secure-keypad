@@ -21,12 +21,19 @@ either a throw-away key is generated for the process.
 
 | Page | What it shows |
 |---|---|
-| `/` | A normal web login page; mouse on desktop, touch on phones. Style and layout selectable. |
+| `/` | A normal web login page; mouse on desktop, touch on phones. Layout, style and languages selectable; changes rebuild the keypads in place. |
 | `/ios.html` | iPhone frame (390 × 844 pt) running the app screen with the iOS-style keypad, popups, dynamic island, home indicator. |
 | `/android.html` | Pixel frame (412 × 915 dp) with the Material-style keypad, camera hole, gesture bar. |
 | `/app.html?device=ios\|android` | The app screen itself; open it directly on a real phone. |
+| `/native.html` | How to run the native iOS (Swift Package) and Android (AAR) SDK examples, with language configuration. |
 
 Routes: `GET /keypad/public-key`, `POST /keypad/session`, `POST /keypad/relayout`, `POST /login`.
+
+## Languages
+
+The keypad languages come from the client's request unless `SKP_LANGUAGES=en,ko` (or the
+`X-Keypad-Languages` header with `SKP_ALLOW_CLIENT_LAYOUT=1`) fixes them on the server. The playground's
+언어 picker uses the client request.
 
 ## E2E
 

@@ -7,7 +7,7 @@ enum class KeypadType(val wire: String) { QWERTY("qwerty"), NUMBER("number") }
 
 enum class Role(val wire: String) {
     CHAR("char"), SPACE("space"), SHIFT("shift"), BACKSPACE("backspace"), MODE_ABC("mode_abc"),
-    MODE_SYM1("mode_sym1"), MODE_SYM2("mode_sym2"), DONE("done"), BLANK("blank");
+    MODE_SYM1("mode_sym1"), MODE_SYM2("mode_sym2"), DONE("done"), BLANK("blank"), LANG("lang");
 
     companion object {
         fun fromWire(s: String): Role = entries.firstOrNull { it.wire == s } ?: throw SecureKeypadException.protocol("role $s")
@@ -24,11 +24,16 @@ data class KeyRect(val x: Int, val y: Int, val w: Int, val h: Int) {
 /** One key. [tile] is the sprite cell for character keys, -1 otherwise. The client never learns a character. */
 data class KeyInfo(val rect: KeyRect, val role: Role, val tile: Int)
 
-/** A layer. [id] = (gen << 3) | mode; modes: lower 0, upper 1, sym1 2, sym2 3, number 4. */
-data class LayoutInfo(val id: Int, val mode: String, val keys: List<KeyInfo>) {
+/**
+ * A layer. [id] = (gen << 3) | slot is assigned by the server and echoed with every tap; [mode] is one of
+ * lower / upper / sym1 / sym2 / number and [lang] names the language of a letter layer ("en", "ko", …).
+ */
+data class LayoutInfo(val id: Int, val mode: String, val lang: String?, val keys: List<KeyInfo>) {
     val gen: Int get() = id shr 3
-    val modeIndex: Int get() = id and 7
 }
+
+/** Space-bar labels when several keyboard languages are installed. */
+val LANGUAGE_NAMES: Map<String, String> = mapOf("en" to "English", "ko" to "한국어")
 
 data class SpriteInfo(val w: Int, val h: Int, val cols: Int, val count: Int)
 
@@ -41,18 +46,22 @@ data class KeypadLayout(
     val gen: Int,
     val maxLen: Int,
     val expSeconds: Int,
+    /** Installed languages in switch order (empty for number pads). */
+    val langs: List<String>,
     val layouts: List<LayoutInfo>,
     val tile: SpriteInfo,
     val popup: SpriteInfo,
 ) {
-    fun layer(modeIndex: Int): LayoutInfo? = layouts.firstOrNull { it.modeIndex == modeIndex }
+    /** Layer for a mode; for letter layers [lang] selects the language (null: the first one listed). */
+    fun layer(mode: String, lang: String? = null): LayoutInfo? =
+        layouts.firstOrNull { it.mode == mode && (lang == null || it.lang == lang) }
 
     companion object {
-        const val MODE_LOWER = 0
-        const val MODE_UPPER = 1
-        const val MODE_SYM1 = 2
-        const val MODE_SYM2 = 3
-        const val MODE_NUMBER = 4
+        const val MODE_LOWER = "lower"
+        const val MODE_UPPER = "upper"
+        const val MODE_SYM1 = "sym1"
+        const val MODE_SYM2 = "sym2"
+        const val MODE_NUMBER = "number"
 
         fun parse(json: String): KeypadLayout = try {
             val o = JSONObject(json)
@@ -63,6 +72,9 @@ data class KeypadLayout(
             val layouts = ArrayList<LayoutInfo>()
             val la = o.getJSONArray("layouts")
             for (i in 0 until la.length()) layouts.add(parseLayer(la.getJSONObject(i)))
+            val langs = ArrayList<String>()
+            val lg = o.optJSONArray("langs")
+            if (lg != null) for (i in 0 until lg.length()) langs.add(lg.getString(i))
             KeypadLayout(
                 version = v,
                 type = type,
@@ -72,6 +84,7 @@ data class KeypadLayout(
                 gen = o.getInt("gen"),
                 maxLen = o.getInt("maxLen"),
                 expSeconds = o.getInt("exp"),
+                langs = langs,
                 layouts = layouts,
                 tile = parseSprite(o.getJSONObject("tile")),
                 popup = parseSprite(o.getJSONObject("popup")),
@@ -94,7 +107,7 @@ data class KeypadLayout(
                 if ((role == Role.CHAR) != (tile >= 0)) throw SecureKeypadException.protocol("tile/role mismatch")
                 keys.add(KeyInfo(KeyRect(r.getInt(0), r.getInt(1), r.getInt(2), r.getInt(3)), role, tile))
             }
-            return LayoutInfo(o.getInt("id"), o.getString("mode"), keys)
+            return LayoutInfo(o.getInt("id"), o.getString("mode"), if (o.has("lang")) o.getString("lang") else null, keys)
         }
     }
 }

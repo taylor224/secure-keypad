@@ -7,7 +7,7 @@
  *
  * Usage (browser, classic script or module):
  *   const server = await SkpWasmServer.create({ masterKey, moduleUrl: "dist/skp.js" });
- *   server.createSession(requestJson, { ctx, layout }) → response object (sealed state kept in memory)
+ *   server.createSession(requestJson, { ctx, layout, languages }) → response object (sealed state kept in memory)
  *   server.relayout(requestJson) → response object
  *   server.decrypt(payloadJson, { ctx, keep }) → Uint8Array (UTF-8), single use
  *   server.handleFetch(input, init) → Response | null   (routes /keypad/* and /login like the example server)
@@ -76,13 +76,14 @@
         version: M.cwrap("skp_version", "string", []),
       };
       const masterKey = opts.masterKey || SkpWasmServer.keygen(M);
-      // skp_config: { const char *path; const char *key; size_t key_len; const char *font_ios; const char *font_material; u32 ttl; u32 cap; }
+      // skp_config: { const char *path; const char *key; size_t key_len; const char *font_ios; const char *font_material;
+      //               const char *font_fallback; u32 ttl; u32 cap; }  (wasm32: 8 × 4 bytes)
       const cfg = M._malloc(32);
       M.HEAPU8.fill(0, cfg, cfg + 32);
       const keyPtr = this.str(masterKey);
       M.setValue(cfg + 4, keyPtr, "i32");
-      M.setValue(cfg + 20, opts.defaultTtl || 0, "i32");
-      M.setValue(cfg + 24, opts.maxLenCap || 0, "i32");
+      M.setValue(cfg + 24, opts.defaultTtl || 0, "i32");
+      M.setValue(cfg + 28, opts.maxLenCap || 0, "i32");
       const out = M._malloc(4);
       const rc = this.c.init(out, cfg);
       this.M.HEAPU8.fill(0, keyPtr, keyPtr + masterKey.length);
@@ -151,9 +152,9 @@
       const M = this.M;
       const req = typeof request === "string" ? request : JSON.stringify(request);
       const reqPtr = this.str(req);
-      // skp_session_opts: { const char *ctx; const char *layout; const char *blank; u32 ttl; u32 max_len; }
-      const o = M._malloc(20);
-      M.HEAPU8.fill(0, o, o + 20);
+      // skp_session_opts: { const char *ctx; const char *layout; const char *blank; u32 ttl; u32 max_len; const char *languages; }
+      const o = M._malloc(24);
+      M.HEAPU8.fill(0, o, o + 24);
       const strs = [];
       const set = (off, v) => {
         if (!v) return;
@@ -166,6 +167,7 @@
       set(8, opts.blank);
       M.setValue(o + 12, opts.ttl || 0, "i32");
       M.setValue(o + 16, opts.maxLen || 0, "i32");
+      set(20, Array.isArray(opts.languages) ? opts.languages.join(",") : opts.languages);
       const resp = M._malloc(8), sealed = M._malloc(8);
       const rc = this.c.create(this.ctx, reqPtr, 0, o, resp, sealed);
       M._free(reqPtr);
@@ -251,7 +253,8 @@
 
     /**
      * Drop-in for `fetch`: serves the example server's routes in-page. Returns null for other URLs.
-     * options: { ctxHeader: "x-login-ctx", echo: boolean, allowClientLayout: boolean, layout: "shuffle" }
+     * options: { ctxHeader: "x-login-ctx", echo: boolean, allowClientLayout: boolean, layout: "shuffle", languages: "en,ko" }
+     * `languages` (or the X-Keypad-Languages header when allowClientLayout is on) overrides the client's opts.langs.
      */
     makeFetch(options = {}) {
       const self = this;
@@ -266,7 +269,8 @@
           if (path === "/keypad/public-key") return json(200, { publicKey: self.publicKey, kid: self.keyId, wasm: true });
           if (path === "/keypad/session") {
             const layout = options.allowClientLayout !== false ? headers.get("x-keypad-layout") || options.layout : options.layout;
-            return json(200, self.createSession(body, { ctx, layout }));
+            const languages = options.allowClientLayout !== false ? headers.get("x-keypad-languages") || options.languages : options.languages;
+            return json(200, self.createSession(body, { ctx, layout, languages }));
           }
           if (path === "/keypad/relayout") return json(200, self.relayout(body));
           if (path === "/login") {

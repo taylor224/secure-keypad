@@ -8,16 +8,11 @@
   <link rel="stylesheet" href="frame.css">
 </head>
 <body>
-  <nav class="topnav">
-    <a class="brand" href="./">secure-keypad</a>
-    <a href="./">일반 웹</a>
-    <a href="ios.html" class="active">iOS 시뮬레이션</a>
-    <a href="android.html">Android 시뮬레이션</a>
-  </nav>
+  <nav class="topnav" data-page="ios"></nav>
   <main class="stage">
     <section class="controls card">
       <h2>iPhone 프레임</h2>
-      <p class="muted">390 × 844pt 화면 안에서 iOS 스타일 키패드가 동작합니다. 키를 누르고 있으면 iOS처럼 팝업이 뜹니다. 실제 iPhone에서는 <a href="app.html?device=ios">app.html</a>을 직접 열어보세요.</p>
+      <p class="muted">390 × 844pt 화면 안에서 iOS 스타일 키패드가 동작합니다. 키를 누르고 있으면 iOS처럼 팝업이 뜹니다. 지구본 키가 한국어 ↔ 영어를 바꿉니다. 실제 iPhone에서는 <a href="app.html?device=ios">실기기 화면</a>을 직접 열어보고, 네이티브 앱은 <a href="native.html#ios">SDK 예제</a>를 보세요.</p>
       <label class="inline">배열
         <select id="layout">
           <option value="shuffle">shuffle (기본)</option>
@@ -29,6 +24,14 @@
         <select id="theme">
           <option value="light">라이트</option>
           <option value="dark">다크</option>
+        </select>
+      </label>
+      <label class="inline">언어
+        <select id="langs">
+          <option value="en,ko">영어 + 한국어</option>
+          <option value="ko,en">한국어 + 영어</option>
+          <option value="en">영어만</option>
+          <option value="ko">한국어만</option>
         </select>
       </label>
       <button class="ghost" id="reload" type="button">새 세션</button>
@@ -52,5 +55,6 @@
   <script src="config.js"></script>
   <script src="demo.js"></script>
   <script src="frame.js"></script>
+  <script src="nav.js"></script>
 </body>
 </html>

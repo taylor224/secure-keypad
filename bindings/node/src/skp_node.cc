@@ -82,7 +82,8 @@ class Server : public Napi::ObjectWrap<Server> {
                 throw Napi::TypeError::New(env, "masterKey must be a string or Buffer");
             }
         }
-        std::string font_ios = opt_string(o, "fontIosPath"), font_material = opt_string(o, "fontMaterialPath");
+        std::string font_ios = opt_string(o, "fontIosPath"), font_material = opt_string(o, "fontMaterialPath"),
+                    font_fallback = opt_string(o, "fontFallbackPath");
         skp_config cfg;
         std::memset(&cfg, 0, sizeof cfg);
         cfg.master_key_path = path.empty() ? nullptr : path.c_str();
@@ -94,6 +95,7 @@ class Server : public Napi::ObjectWrap<Server> {
         }
         cfg.font_ios_path = font_ios.empty() ? nullptr : font_ios.c_str();
         cfg.font_material_path = font_material.empty() ? nullptr : font_material.c_str();
+        cfg.font_fallback_path = font_fallback.empty() ? nullptr : font_fallback.c_str();
         cfg.default_ttl_sec = opt_uint(o, "defaultTtl");
         cfg.max_len_cap = opt_uint(o, "maxLenCap");
         int rc = skp_init(&ctx_, &cfg);
@@ -137,18 +139,20 @@ class Server : public Napi::ObjectWrap<Server> {
         std::string req = json_arg(info, 0, "request");
         skp_session_opts opts;
         std::memset(&opts, 0, sizeof opts);
-        std::string ctx, layout, blank;
+        std::string ctx, layout, blank, languages;
         if (info.Length() > 1 && info[1].IsObject()) {
             Napi::Object o = info[1].As<Napi::Object>();
             ctx = opt_string(o, "ctx");
             layout = opt_string(o, "layout");
             blank = opt_string(o, "blank");
+            languages = opt_string(o, "languages");
             opts.ttl_sec = opt_uint(o, "ttl");
             opts.max_len = opt_uint(o, "maxLen");
         }
         opts.ctx = ctx.empty() ? nullptr : ctx.c_str();
         opts.layout = layout.empty() ? nullptr : layout.c_str();
         opts.blank = blank.empty() ? nullptr : blank.c_str();
+        opts.languages = languages.empty() ? nullptr : languages.c_str();
         skp_buf resp = {nullptr, 0}, sealed = {nullptr, 0};
         int rc = skp_session_create(ctx_, req.c_str(), req.size(), &opts, &resp, &sealed);
         if (rc)

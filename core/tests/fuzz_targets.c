@@ -33,13 +33,13 @@ static void setup(void) {
     snprintf(g_request, 256, "{\"v\":1,\"kp\":\"%s\",\"type\":\"number\",\"viewport\":{\"w\":390,\"dpr\":3,\"platform\":\"ios\"}}", kp);
     free(kp);
     skp_buf resp = {0};
-    skp_session_opts opts = {"ctx", "shuffle", "fixed", 0, 0}; /* blank is cell 9: the top row is always digits */
+    skp_session_opts opts = {"ctx", "shuffle", "fixed", 0, 0, NULL}; /* blank is cell 9: the top row is always digits */
     if (skp_session_create(g_ctx, g_request, 0, &opts, &resp, &g_sealed) != SKP_OK)
         abort();
     test_client cl;
     if (client_open(&cl, (const char *)resp.data, c_sk, NULL) != 0)
         abort();
-    int32_t taps[3][3] = {{4, 100, 100}, {4, 500, 100}, {4, 900, 100}};
+    int32_t taps[3][3] = {{0, 100, 100}, {0, 500, 100}, {0, 900, 100}}; /* slot 0 = the number layer */
     g_payload = client_build_payload(&cl, 16, taps, 3);
     client_free(&cl);
     skp_buf_free(&resp);

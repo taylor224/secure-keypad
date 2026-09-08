@@ -39,15 +39,19 @@ public final class ClientSession {
         wipe()
     }
 
-    /// Session request body (spec/PROTOCOL.md §4.1).
-    public func requestJSON(type: KeypadType, viewport: Viewport, maxLen: Int?) throws -> Data {
+    /// Session request body (spec/PROTOCOL.md §4.1). `languages` asks for keyboard languages in switch
+    /// order (the server may override it; the default is ["en", "ko"]).
+    public func requestJSON(type: KeypadType, viewport: Viewport, maxLen: Int?, languages: [String]? = nil) throws -> Data {
         var body: [String: Any] = [
             "v": 1,
             "kp": clientPublicKeyBase64,
             "type": type.rawValue,
             "viewport": viewport.json,
         ]
-        if let maxLen = maxLen { body["opts"] = ["maxLen": maxLen] }
+        var opts: [String: Any] = [:]
+        if let maxLen = maxLen { opts["maxLen"] = maxLen }
+        if let languages = languages, !languages.isEmpty, type == .qwerty { opts["langs"] = languages }
+        if !opts.isEmpty { body["opts"] = opts }
         return try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
     }
 

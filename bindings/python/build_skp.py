@@ -46,6 +46,7 @@ typedef struct {
     size_t master_key_len;
     const char *font_ios_path;
     const char *font_material_path;
+    const char *font_fallback_path;
     uint32_t default_ttl_sec;
     uint32_t max_len_cap;
 } skp_config;
@@ -56,6 +57,7 @@ typedef struct {
     const char *blank;
     uint32_t ttl_sec;
     uint32_t max_len;
+    const char *languages;
 } skp_session_opts;
 
 int skp_init(skp_ctx **out, const skp_config *cfg);

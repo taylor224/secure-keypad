@@ -141,19 +141,20 @@ JNIEXPORT jstring JNICALL Java_dev_securekeypad_Native_keygen(JNIEnv *env, jclas
 JNIEXPORT jobjectArray JNICALL Java_dev_securekeypad_Native_createSession(JNIEnv *env, jclass cls, jlong h,
                                                                           jbyteArray req, jbyteArray jctx,
                                                                           jbyteArray jlayout, jbyteArray jblank,
-                                                                          jint ttl, jint max_len) {
+                                                                          jint ttl, jint max_len, jbyteArray jlangs) {
     (void)cls;
-    size_t rlen = 0, clen = 0, llen = 0, blen = 0;
+    size_t rlen = 0, clen = 0, llen = 0, blen = 0, glen = 0;
     char *r = bytes_to_cstr(env, req, &rlen);
     char *c = bytes_to_cstr(env, jctx, &clen);
     char *l = bytes_to_cstr(env, jlayout, &llen);
     char *b = bytes_to_cstr(env, jblank, &blen);
+    char *g = bytes_to_cstr(env, jlangs, &glen);
     jobjectArray out = NULL;
     if (!r) {
         throw_skp(env, SKP_ERR_INVALID_ARG, "request");
         goto done;
     }
-    skp_session_opts opts = {c, l, b, ttl > 0 ? (uint32_t)ttl : 0, max_len > 0 ? (uint32_t)max_len : 0};
+    skp_session_opts opts = {c, l, b, ttl > 0 ? (uint32_t)ttl : 0, max_len > 0 ? (uint32_t)max_len : 0, g};
     skp_buf resp = {0}, sealed = {0};
     int rc = skp_session_create((const skp_ctx *)(intptr_t)h, r, rlen, &opts, &resp, &sealed);
     if (rc) {
@@ -168,6 +169,7 @@ done:
     wipe_free(c, clen);
     wipe_free(l, llen);
     wipe_free(b, blen);
+    wipe_free(g, glen);
     return out;
 }
 

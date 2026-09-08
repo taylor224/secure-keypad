@@ -5,8 +5,9 @@
 //
 // Dev/test switches (never enable in production):
 //   SKP_CORS_ORIGIN=https://x   allow a statically hosted playground (GitHub Pages) to call this server
-//   SKP_ALLOW_CLIENT_LAYOUT=1   honour the X-Keypad-Layout header (demo picker)
+//   SKP_ALLOW_CLIENT_LAYOUT=1   honour the X-Keypad-Layout / X-Keypad-Languages headers (demo pickers)
 //   SKP_DEMO_ECHO=1             /login echoes the decrypted value (playground result panel, E2E asserts)
+//   SKP_LANGUAGES=en,ko         force the keypad languages regardless of what clients ask for
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +22,7 @@ if (!masterKeyPath && !process.env.SKP_MASTER_KEY) console.warn("[example] no ma
 const skp = new SecureKeypadServer({ masterKeyPath, masterKey });
 const allowClientLayout = process.env.SKP_ALLOW_CLIENT_LAYOUT === "1";
 const echo = process.env.SKP_DEMO_ECHO === "1";
+const forcedLanguages = process.env.SKP_LANGUAGES || undefined;
 const app = express();
 app.use(express.json({ limit: "64kb" }));
 
@@ -32,7 +34,7 @@ if (corsOrigins.length) {
     if (origin && (corsOrigins.includes("*") || corsOrigins.includes(origin))) {
       res.set("access-control-allow-origin", origin);
       res.set("vary", "origin");
-      res.set("access-control-allow-headers", "content-type, x-login-ctx, x-keypad-layout");
+      res.set("access-control-allow-headers", "content-type, x-login-ctx, x-keypad-layout, x-keypad-languages");
       res.set("access-control-allow-methods", "GET, POST, OPTIONS");
       res.set("access-control-max-age", "600");
       // Chrome's private-network-access preflight when a public site calls a local backend
@@ -60,7 +62,9 @@ app.get("/keypad/public-key", (_req, res) => res.json({ publicKey: skp.publicKey
 app.post("/keypad/session", async (req, res) => {
   try {
     const layout = allowClientLayout ? req.get("x-keypad-layout") || undefined : undefined;
-    res.json(await skp.createSession(req.body, { ctx: ctxOf(req), layout }));
+    // languages: the client's request (opts.langs) is honoured by the SDK unless the server names them
+    const languages = forcedLanguages || (allowClientLayout ? req.get("x-keypad-languages") || undefined : undefined);
+    res.json(await skp.createSession(req.body, { ctx: ctxOf(req), layout, languages }));
   } catch (e) {
     fail(res, e);
   }

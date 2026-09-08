@@ -1,9 +1,10 @@
 // Shared wiring for the playground pages: creates the two keypads, submits to /login, reports results.
-// Everything here is demo plumbing; the only SDK calls are createSecureKeypad / attach / submit / reset.
+// Everything here is demo plumbing; the only SDK calls are createSecureKeypad / attach / submit / reset / destroy.
 (function () {
   const qs = new URLSearchParams(location.search);
   const base = window.SKP_API_BASE || "";
   const api = (path) => base + path;
+  const LANGUAGE_NAMES = { en: "English", ko: "한국어" };
 
   function showBanner(message) {
     // inside a device frame the host page shows the notice next to the phone instead of over the screen
@@ -24,6 +25,7 @@
 
   let fetchImpl = (...a) => fetch(...a);
   let wasmServer = null;
+  let backend = null; // { publicKey, kid } once resolved
 
   /** Loads the WebAssembly build of the server SDK and serves the routes inside this page. */
   async function startWasmServer() {
@@ -46,18 +48,19 @@
     );
   }
 
-  async function setup(o) {
-    let publicKey, kid;
+  /** Finds a backend once: the configured/same-origin server, else the in-page WebAssembly server. */
+  async function resolveBackend() {
+    if (backend) return backend;
     const wantWasm = qs.get("mode") === "wasm";
     try {
       if (wantWasm) throw new Error("wasm mode requested");
       const res = await fetch(api("/keypad/public-key"));
       if (!res.ok) throw new Error("HTTP " + res.status);
-      ({ publicKey, kid } = await res.json());
+      backend = await res.json();
     } catch (e) {
       try {
         await startWasmServer();
-        ({ publicKey, kid } = await (await fetchImpl("/keypad/public-key")).json());
+        backend = await (await fetchImpl("/keypad/public-key")).json();
       } catch (e2) {
         showBanner(
           "백엔드에 연결할 수 없고 내장 WebAssembly 서버도 불러오지 못했습니다 (" + (base || location.origin) + ").\n" +
@@ -67,50 +70,111 @@
         throw e2;
       }
     }
+    return backend;
+  }
+
+  /** "en,ko" | ["en","ko"] → ["en","ko"]; empty → undefined (the server decides: en + ko). */
+  function parseLangs(value) {
+    if (Array.isArray(value)) return value.length ? value : undefined;
+    if (typeof value !== "string" || !value.trim()) return undefined;
+    return value.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+
+  function languageLabel(codes) {
+    return (codes || ["en", "ko"]).map((c) => LANGUAGE_NAMES[c] || c).join(" · ");
+  }
+
+  /**
+   * Creates the PIN and password keypads. Options: pinEl, passwordEl, layout (value or function), style, theme,
+   * languages ("ko,en" or array), popups, safeAreaBottom, doneLabel, mount, onStatus, onLang(code).
+   * The returned object can `apply({ layout, style, languages })` to rebuild the keypads without reloading.
+   */
+  async function setup(o) {
+    const { publicKey, kid } = await resolveBackend();
     const ctx = "demo-" + Math.random().toString(36).slice(2, 10);
-    const getLayout = () => (typeof o.layout === "function" ? o.layout() : o.layout || qs.get("layout") || "shuffle");
-    const common = {
-      sessionUrl: api("/keypad/session"),
-      relayoutUrl: api("/keypad/relayout"),
-      serverPublicKey: publicKey,
-      headers: () => ({ "x-login-ctx": ctx, "x-keypad-layout": getLayout() }),
-      credentials: "omit",
-      fetch: (...a) => fetchImpl(...a),
+    const settings = {
+      layout: typeof o.layout === "function" ? o.layout() : o.layout || qs.get("layout") || "shuffle",
       style: o.style || qs.get("style") || "auto",
-      theme: o.theme || qs.get("theme") || "auto",
-      popups: o.popups ?? "auto",
-      safeAreaBottom: o.safeAreaBottom || 0,
-      doneLabel: o.doneLabel || "Done",
-      mount: o.mount,
+      languages: parseLangs(o.languages !== undefined ? o.languages : qs.get("langs")),
     };
-    const pin = SecureKeypad.createSecureKeypad({ ...common, type: "number", maxLen: 6 });
-    const password = SecureKeypad.createSecureKeypad({ ...common, type: "qwerty", maxLen: 32 });
-    pin.attach(o.pinEl);
-    password.attach(o.passwordEl);
     const layouts = {};
-    pin.on("ready", ({ layout }) => (layouts.pin = layout));
-    password.on("ready", ({ layout }) => (layouts.password = layout));
-    for (const [name, kp] of [["pin", pin], ["password", password]]) {
-      kp.on("error", ({ error }) => o.onStatus?.(name + ": " + error.message));
-      kp.on("expire", () => o.onStatus?.(name + ": 세션 만료 — 다시 입력하세요"));
+    const demo = { pin: null, password: null, ctx, kid, layouts, wasm: !!wasmServer, settings };
+
+    function build() {
+      const common = {
+        sessionUrl: api("/keypad/session"),
+        relayoutUrl: api("/keypad/relayout"),
+        serverPublicKey: publicKey,
+        headers: () => ({ "x-login-ctx": ctx, "x-keypad-layout": settings.layout }),
+        credentials: "omit",
+        fetch: (...a) => fetchImpl(...a),
+        style: settings.style,
+        theme: o.theme || qs.get("theme") || "auto",
+        popups: o.popups ?? "auto",
+        safeAreaBottom: o.safeAreaBottom || 0,
+        doneLabel: o.doneLabel || "Done",
+        mount: o.mount,
+      };
+      const pin = SecureKeypad.createSecureKeypad({ ...common, type: "number", maxLen: 6 });
+      const password = SecureKeypad.createSecureKeypad({ ...common, type: "qwerty", maxLen: 32, languages: settings.languages });
+      demo.pin = pin;
+      demo.password = password;
+      delete layouts.pin;
+      delete layouts.password;
+      pin.on("ready", ({ layout }) => (layouts.pin = layout));
+      password.on("ready", ({ layout }) => (layouts.password = layout));
+      password.on("lang", ({ lang }) => o.onLang?.(lang));
+      for (const [name, kp] of [["pin", pin], ["password", password]]) {
+        kp.on("error", ({ error }) => o.onStatus?.(name + ": " + error.message));
+        kp.on("expire", () => o.onStatus?.(name + ": 세션 만료 — 다시 입력하세요"));
+      }
+      pin.attach(o.pinEl);
+      password.attach(o.passwordEl);
     }
+    build();
 
     async function login() {
       const body = {};
-      if (pin.length) body.pin_enc = JSON.parse(pin.submit());
-      if (password.length) body.password_enc = JSON.parse(password.submit());
+      if (demo.pin.length) body.pin_enc = JSON.parse(demo.pin.submit());
+      if (demo.password.length) body.password_enc = JSON.parse(demo.password.submit());
       const res = await fetchImpl(api("/login"), {
         method: "POST",
         headers: { "content-type": "application/json", "x-login-ctx": ctx },
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      pin.reset();
-      password.reset();
+      demo.pin.reset();
+      demo.password.reset();
       return json;
     }
 
-    return { pin, password, login, ctx, kid, layouts, wasm: !!wasmServer, reset: () => (pin.reset(), password.reset()) };
+    /** Rebuilds both keypads with new settings (style, languages need new instances; layout needs new sessions). */
+    async function apply(next) {
+      const wasOpen = demo.password.isOpen ? "password" : demo.pin.isOpen ? "pin" : null;
+      if (next.layout) settings.layout = next.layout;
+      if (next.style) settings.style = next.style;
+      if (next.languages !== undefined) settings.languages = parseLangs(next.languages);
+      demo.pin.destroy();
+      demo.password.destroy();
+      build();
+      window.__skp = Object.assign(window.__skp || {}, { pin: demo.pin, password: demo.password, layouts, ctx });
+      // show the result right away: reopen the keypad that was open (or the password keypad on desktop)
+      const target = wasOpen || (matchMedia("(pointer: fine)").matches ? "password" : null);
+      if (target) await demo[target].open();
+      return settings;
+    }
+
+    Object.assign(demo, {
+      login,
+      apply,
+      reset: () => (demo.pin.reset(), demo.password.reset()),
+      describe: () => {
+        const auto = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "iOS" : "Material";
+        const style = settings.style === "auto" ? `auto → ${auto}` : settings.style === "ios" ? "iOS" : "Material";
+        return `배열 ${settings.layout} · 스타일 ${style} · 언어 ${languageLabel(settings.languages)}`;
+      },
+    });
+    return demo;
   }
 
   /** Renders the /login result into a container: lengths always, values only when the server is in demo-echo mode. */
@@ -141,7 +205,7 @@
             `</div>`,
         )
         .join("") +
-      (json.demoEcho ? `<div class="res-note">데모 모드: 서버가 복호화한 값을 표시합니다. 실제 서비스는 값을 절대 돌려주지 않습니다.</div>` : "") +
+      (json.demoEcho ? `<div class="res-note">데모 모드: 서버가 복호화한 값을 표시합니다. 실제 서비스는 값을 절대 돌려주지 않습니다. 한글은 서버가 자모를 음절로 조합한 결과입니다.</div>` : "") +
       `</div>`;
   }
 
@@ -149,5 +213,5 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
 
-  window.SkpDemo = { setup, renderResult, qs, api };
+  window.SkpDemo = { setup, renderResult, qs, api, parseLangs, languageLabel, LANGUAGE_NAMES };
 })();

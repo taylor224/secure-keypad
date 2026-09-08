@@ -38,8 +38,11 @@ npm test                    # vitest (needs the addon built)
   Master key: 64 hex chars, base64, or 32 raw bytes. `SKP_MASTER_KEY` / `SKP_MASTER_KEY_PATH` are read when
   neither option is given. Generate one with `keygen()` or `skp-keygen`.
 - `publicKey`, `keyId` — for client configuration.
-- `createSession(request, { ctx?, layout?, blank?, ttl?, maxLen? })` → response JSON for the client. The
-  sealed state goes into the store keyed by `sid`.
+- `createSession(request, { ctx?, layout?, blank?, ttl?, maxLen?, languages? })` → response JSON for the client.
+  The sealed state goes into the store keyed by `sid`. `languages` (`["ko", "en"]`, `["en"]`, or `"en,ko"`)
+  fixes the QWERTY keyboard languages; unset, the client's request is honoured, else `en, ko`. Korean jamo
+  are composed into syllables by `decrypt`.
+- `new SecureKeypadServer({ …, fontFallbackPath? })` replaces the embedded Noto Sans KR subset used for Hangul labels.
 - `relayout(request)` → response JSON; the stored state is replaced.
 - `decrypt(payload, { ctx?, keep? })` → `Secret` (`bytes: Buffer`, `toString()`, `wipe()`). The session is
   removed from the store unless `keep` is set, so a payload can be used once.

@@ -6,21 +6,14 @@ public enum KeypadType: String, Codable {
     case number
 }
 
-/// Layer of a keypad (spec/LAYOUT.md). The raw values are the `mode` strings on the wire.
+/// Layer of a keypad (spec/LAYOUT.md). The raw values are the `mode` strings on the wire. Letter layers
+/// (`lower` / `upper`) exist once per installed language; symbol layers are shared.
 public enum KeypadMode: String, Codable {
     case lower, upper, sym1, sym2, number
-
-    /// Mode number used in `layout_id = (gen << 3) | mode`.
-    public var number: Int {
-        switch self {
-        case .lower: return 0
-        case .upper: return 1
-        case .sym1: return 2
-        case .sym2: return 3
-        case .number: return 4
-        }
-    }
 }
+
+/// Display names for the space bar when several keyboard languages are installed.
+public let keypadLanguageNames: [String: String] = ["en": "English", "ko": "한국어"]
 
 /// Role of a key. Only `char` and `space` taps are ever transmitted.
 public enum KeyRole: String, Codable {
@@ -33,6 +26,8 @@ public enum KeyRole: String, Codable {
     case modeSym2 = "mode_sym2"
     case done
     case blank
+    /// Globe key: switches to the next installed language. Never transmitted.
+    case lang
 
     /// Whether a tap on this key becomes an input record.
     public var isCharacter: Bool { self == .char || self == .space }
@@ -68,15 +63,18 @@ public struct KeypadKey: Codable, Equatable {
     }
 }
 
-/// One layer (mode) of the keypad with its layout id (`(gen << 3) | mode`).
+/// One layer of the keypad with its server-assigned layout id (`(gen << 3) | slot`, opaque to the client).
 public struct KeypadLayout: Codable, Equatable {
     public let id: Int
     public let mode: KeypadMode
+    /// Language code of a letter layer ("en", "ko", …); nil on symbol and number layers.
+    public let lang: String?
     public let keys: [KeypadKey]
 
-    public init(id: Int, mode: KeypadMode, keys: [KeypadKey]) {
+    public init(id: Int, mode: KeypadMode, lang: String? = nil, keys: [KeypadKey]) {
         self.id = id
         self.mode = mode
+        self.lang = lang
         self.keys = keys
     }
 
@@ -117,13 +115,19 @@ public struct KeypadLayoutSet: Codable, Equatable {
     public let gen: Int
     public let maxLen: Int
     public let exp: Int
+    /// Installed languages in switch order (empty for number pads; absent in older responses).
+    public let langs: [String]?
     public let layouts: [KeypadLayout]
     public let tile: SpriteInfo
     public let popup: SpriteInfo
 
-    public func layout(for mode: KeypadMode) -> KeypadLayout? {
-        layouts.first { $0.mode == mode }
+    /// Layer for a mode; for letter layers `lang` selects the language (nil: the first one listed).
+    public func layout(for mode: KeypadMode, lang: String? = nil) -> KeypadLayout? {
+        layouts.first { $0.mode == mode && (lang == nil || $0.lang == lang) }
     }
+
+    /// Languages in switch order (never nil).
+    public var languages: [String] { langs ?? [] }
 
     static func decode(_ data: Data) throws -> KeypadLayoutSet {
         let set = try JSONDecoder().decode(KeypadLayoutSet.self, from: data)

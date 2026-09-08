@@ -20,6 +20,7 @@ import android.view.View
 import android.view.accessibility.AccessibilityNodeInfo
 import dev.securekeypad.protocol.HitTest
 import dev.securekeypad.protocol.KeyInfo
+import dev.securekeypad.protocol.LANGUAGE_NAMES
 import dev.securekeypad.protocol.KeypadLayout
 import dev.securekeypad.protocol.KeypadType
 import dev.securekeypad.protocol.LayoutInfo
@@ -43,6 +44,10 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
     var onDone: (() -> Unit)? = null
     /** The view's size no longer matches the session's surface; the controller should request a relayout. */
     var onRelayoutNeeded: ((widthPx: Int) -> Unit)? = null
+    /** The user switched keyboard language (code from the layout's `langs`). */
+    var onLanguageChange: ((String) -> Unit)? = null
+    /** Space-bar labels per language code; falls back to [LANGUAGE_NAMES], then the code. */
+    var languageNames: Map<String, String> = emptyMap()
 
     var theme: KeypadTheme = KeypadTheme.LIGHT
         set(value) {
@@ -64,6 +69,9 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
     private var shift = Shift.OFF
     private var lastShiftTap = 0L
     private var symMode = 0 // 0 abc, 1 sym1, 2 sym2
+    /** Current language code; kept across sessions while the server keeps offering it. */
+    var language: String? = null
+        private set
 
     private var pressed: KeyInfo? = null
     private var downX = 0
@@ -115,9 +123,32 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
         shift = Shift.OFF
         symMode = 0
         pressed = null
+        pickLanguage(payload.layout)
         requestLayout()
         invalidate()
         onChange?.invoke(0)
+    }
+
+    private fun pickLanguage(l: KeypadLayout) {
+        val current = language
+        language = if (current != null && l.langs.contains(current)) current else l.langs.firstOrNull()
+    }
+
+    /** Switches to one of the installed languages; returns false when the layout does not offer it. */
+    fun setLanguage(code: String): Boolean {
+        val l = layout ?: return false
+        if (!l.langs.contains(code)) return false
+        language = code
+        symMode = 0
+        shift = Shift.OFF
+        invalidate()
+        return true
+    }
+
+    private fun spaceLabel(l: KeypadLayout): String? {
+        val code = language ?: return null
+        if (l.langs.size < 2) return null
+        return languageNames[code] ?: LANGUAGE_NAMES[code] ?: code.uppercase()
     }
 
     /** Installs a relayout payload (new generation). Records keep their original layout ids. */
@@ -130,6 +161,7 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
         popups = p
         layout = payload.layout
         pressed = null
+        pickLanguage(payload.layout)
         requestLayout()
         invalidate()
     }
@@ -217,7 +249,10 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
         return when (symMode) {
             1 -> l.layer(KeypadLayout.MODE_SYM1)
             2 -> l.layer(KeypadLayout.MODE_SYM2)
-            else -> l.layer(if (shift == Shift.OFF) KeypadLayout.MODE_LOWER else KeypadLayout.MODE_UPPER)
+            else -> {
+                val mode = if (shift == Shift.OFF) KeypadLayout.MODE_LOWER else KeypadLayout.MODE_UPPER
+                l.layer(mode, language) ?: l.layer(mode)
+            }
         }
     }
 
@@ -241,8 +276,10 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
             canvas.drawRoundRect(rectF, radius, radius, fillPaint)
             when (k.role) {
                 Role.CHAR -> drawCell(canvas, tiles, l.tile.w, l.tile.h, l.tile.cols, k.tile, k.rect, theme.keyText)
+                Role.SPACE -> spaceLabel(l)?.let { drawLabel(canvas, k, it, theme.keyText) }
                 Role.SHIFT -> drawShift(canvas, k, shift == Shift.CAPS)
                 Role.BACKSPACE -> drawBackspace(canvas, k)
+                Role.LANG -> drawGlobe(canvas, k)
                 Role.MODE_ABC -> drawLabel(canvas, k, "ABC", theme.keyText)
                 Role.MODE_SYM1 -> drawLabel(canvas, k, "?123", theme.keyText)
                 Role.MODE_SYM2 -> drawLabel(canvas, k, "=\\<", theme.keyText)
@@ -312,6 +349,29 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
             iconPaint.style = Paint.Style.STROKE
             canvas.drawLine(cx - s / 4, cy + s / 2 + 3 * density, cx + s / 4, cy + s / 2 + 3 * density, iconPaint)
         }
+    }
+
+    /** Globe icon of the language key: a circle with a meridian and two parallels. */
+    private fun drawGlobe(canvas: Canvas, k: KeyInfo) {
+        val r = minOf(k.rect.w, k.rect.h) * 0.24f
+        val cx = k.rect.x + k.rect.w / 2f
+        val cy = k.rect.y + k.rect.h / 2f
+        iconPaint.color = theme.keyIcon
+        iconPaint.strokeWidth = 1.5f * density
+        iconPaint.style = Paint.Style.STROKE
+        canvas.drawCircle(cx, cy, r, iconPaint)
+        canvas.drawLine(cx - r, cy, cx + r, cy, iconPaint)
+        canvas.drawLine(cx, cy - r, cx, cy + r, iconPaint)
+        rectF.set(cx - r * 0.42f, cy - r, cx + r * 0.42f, cy + r)
+        canvas.drawOval(rectF, iconPaint)
+        val lat = r * 0.5f
+        val half = kotlin.math.sqrt(r * r - lat * lat)
+        path.reset()
+        path.moveTo(cx - half, cy - lat)
+        path.quadTo(cx, cy - lat - r * 0.16f, cx + half, cy - lat)
+        path.moveTo(cx - half, cy + lat)
+        path.quadTo(cx, cy + lat + r * 0.16f, cx + half, cy + lat)
+        canvas.drawPath(path, iconPaint)
     }
 
     private fun drawBackspace(canvas: Canvas, k: KeyInfo) {
@@ -384,6 +444,7 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
     }
 
     private fun commit(layer: LayoutInfo, k: KeyInfo) {
+        if (k.role != Role.SHIFT) lastShiftTap = 0L // caps lock needs two consecutive shift taps
         when (k.role) {
             Role.CHAR, Role.SPACE -> {
                 if (records.size >= maxLen) return
@@ -404,6 +465,16 @@ class SecureKeypadView @JvmOverloads constructor(context: Context, attrs: Attrib
             Role.MODE_ABC -> { symMode = 0; shift = Shift.OFF }
             Role.MODE_SYM1 -> symMode = 1
             Role.MODE_SYM2 -> symMode = 2
+            Role.LANG -> {
+                val langs = layout?.langs ?: emptyList()
+                if (langs.size >= 2) {
+                    val next = langs[(langs.indexOf(language) + 1) % langs.size]
+                    language = next
+                    symMode = 0
+                    shift = Shift.OFF
+                    onLanguageChange?.invoke(next)
+                }
+            }
             Role.DONE -> onDone?.invoke()
             else -> {}
         }

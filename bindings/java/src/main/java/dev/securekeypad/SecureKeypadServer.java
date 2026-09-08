@@ -67,7 +67,7 @@ public final class SecureKeypadServer implements AutoCloseable {
         SessionOptions o = opts == null ? SessionOptions.DEFAULT : opts;
         return withHandle(() -> {
             Object[] r = Native.createSession(handle, utf8(requestJson), utf8(o.ctx()), utf8(o.layout()),
-                    utf8(o.blank()), o.ttlSec(), o.maxLen());
+                    utf8(o.blank()), o.ttlSec(), o.maxLen(), utf8(o.languages()));
             byte[] resp = (byte[]) r[0];
             byte[] sealed = (byte[]) r[1];
             storeSealed(sealed);

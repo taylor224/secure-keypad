@@ -53,7 +53,7 @@ session response so that keys can be rotated later.
   "kp": "<b64 X25519 public key, 32 B>",
   "type": "qwerty",
   "viewport": { "w": 390, "dpr": 3, "platform": "ios", "style": "ios" },
-  "opts": { "maxLen": 32 } }
+  "opts": { "maxLen": 32, "langs": ["ko", "en"] } }
 ```
 
 | Field | Required | Meaning |
@@ -66,6 +66,7 @@ session response so that keys can be rotated later.
 | `viewport.platform` | yes | `"ios"`, `"android"`, or `"web"` |
 | `viewport.style` | no | `"ios"` or `"material"`; default `"ios"` when platform is `ios`, else `"material"` |
 | `opts.maxLen` | no | requested maximum input length |
+| `opts.langs` | no | requested keyboard languages in switch order, 1–3 distinct codes from LAYOUT.md §3 (`"en"`, `"ko"`); anything else is `BAD_REQUEST`. Ignored for number pads |
 
 Server-side options are supplied by the integrator's code, never by the client:
 
@@ -74,6 +75,7 @@ Server-side options are supplied by the integrator's code, never by the client:
 | `ctx` | none | opaque binding string (user id, login attempt id). Must be presented again at decrypt |
 | `layout` | `"shuffle"` | `"shuffle"`, `"full"`, or `"fixed"` (see LAYOUT.md §4) |
 | `blank` | `"fixed"` | `"fixed"` or `"random"` (number pad only) |
+| `languages` | none | keyboard languages in switch order (`"en,ko"`, `"ko"`, …). Overrides `opts.langs`; unknown or repeated codes are `UNSUPPORTED`. Ignored for number pads |
 | `ttl` | 180 s | session lifetime |
 | `maxLen` | 0 | if `> 0`, overrides the client's request |
 
@@ -86,6 +88,7 @@ W         = rnd(w_milli × dpr_milli, 1000000)   (device pixels, must be in [200
 style     = viewport.style, else "ios" if platform == "ios" else "material"
 max_len   = server maxLen if > 0, else opts.maxLen if present, else 32 (qwerty) / 16 (number)
             then clamped to [1, cap]  (cap defaults to 256)
+langs     = [] for number pads; else server languages if set, else opts.langs if present, else ["en", "ko"]
 ```
 
 `rnd(a, b) = floor((2a + b) / (2b))` for `a ≥ 0, b > 0` (round half up). All geometry uses this helper so
@@ -103,7 +106,7 @@ k_c2s        = HKDF-Expand(prk, "c2s" || c_pk || s_pk, 32)
 s_sk, ss, prk are wiped immediately.
 
 seed         = random(32)
-layouts      = LAYOUT(type, policy, blank, style, W, dpr_milli, seed, gen = 0)      (LAYOUT.md)
+layouts      = LAYOUT(type, policy, blank, style, langs, W, dpr_milli, seed, gen = 0)   (LAYOUT.md)
 tiles, popups = RENDER(layouts, style, dpr_milli)                                   (LAYOUT.md §6)
 inner        = u32(len(json)) || json || u32(len(tiles)) || tiles || u32(len(popups)) || popups
 ct           = AEAD(k_s2c, NONCE(0), "skp/v1/session" || sid, inner)
@@ -132,26 +135,34 @@ The server then produces the sealed blob (§9) and returns both the response and
 
 ```json
 { "v": 1, "type": "qwerty", "style": "ios", "w": 1170, "h": 648, "gen": 0, "maxLen": 32, "exp": 180,
+  "langs": ["en", "ko"],
   "layouts": [
-    { "id": 0, "mode": "lower",
+    { "id": 0, "mode": "lower", "lang": "en",
       "keys": [ { "r": [9, 24, 99, 126], "role": "char", "t": 0 }, ... ] },
-    { "id": 1, "mode": "upper",  "keys": [ ... ] },
-    { "id": 2, "mode": "sym1",   "keys": [ ... ] },
-    { "id": 3, "mode": "sym2",   "keys": [ ... ] } ],
-  "tile":  { "w": 99, "h": 126, "cols": 10, "count": 102 },
-  "popup": { "w": 149, "h": 176, "cols": 10, "count": 102 } }
+    { "id": 1, "mode": "upper", "lang": "en", "keys": [ ... ] },
+    { "id": 2, "mode": "lower", "lang": "ko", "keys": [ ... ] },
+    { "id": 3, "mode": "upper", "lang": "ko", "keys": [ ... ] },
+    { "id": 4, "mode": "sym1",  "keys": [ ... ] },
+    { "id": 5, "mode": "sym2",  "keys": [ ... ] } ],
+  "tile":  { "w": 99, "h": 126, "cols": 10, "count": 154 },
+  "popup": { "w": 149, "h": 176, "cols": 10, "count": 154 } }
 ```
 
 - `w`, `h`: keypad surface size in device pixels. All rects are relative to the surface's top-left corner.
-- `id`: `layout_id = (gen << 3) | mode`, with `mode` lower = 0, upper = 1, sym1 = 2, sym2 = 3, number = 4.
-- `role`: one of `char`, `space`, `shift`, `backspace`, `mode_abc`, `mode_sym1`, `mode_sym2`, `done`, `blank`.
+- `langs`: the keyboard languages in switch order (LAYOUT.md §3); empty for number pads.
+- `id`: `layout_id = (gen << 3) | slot`, where `slot` is the layer's position in `layouts` (0..7). Clients
+  treat ids as opaque and echo them with each tap.
+- `mode`: `lower`, `upper`, `sym1`, `sym2`, `number`; `lang` names the language of a `lower` / `upper` layer.
+- `role`: one of `char`, `space`, `shift`, `backspace`, `mode_abc`, `mode_sym1`, `mode_sym2`, `done`,
+  `blank`, `lang`.
 - `t`: sprite cell index, present only for `role == "char"`. Indices are assigned in listing order (spatial
   order) and never depend on the character. Both sprites use the same index.
 - `exp`: seconds until expiry at the time of rendering.
 - Sprites are 8-bit grayscale PNG where the sample value is glyph coverage (255 = fully inked). Cell `t` is
   at column `t mod cols`, row `t div cols`. The client tints coverage with its theme's text color.
 - Canonical field order (required for test vectors, recommended for all implementations): objects are
-  emitted with keys in the order shown above; numbers are integers; no whitespace.
+  emitted with keys in the order shown above (`lang` between `mode` and `keys`, only when present); numbers
+  are integers; no whitespace.
 
 Everything a client needs to *display* a key is in this object. Nothing in it identifies a character.
 
@@ -186,9 +197,9 @@ Taps recorded before the relayout keep their original `layout_id` and coordinate
 
 ## 7. Input (client → server)
 
-The client records one 8-byte record per *character* tap. Control keys (shift, mode switches, done) are
-handled locally and never transmitted; backspace removes the last record. `space` is recorded like a
-character. The batch is always padded to `max_len` records so its length reveals nothing.
+The client records one 8-byte record per *character* tap. Control keys (shift, mode switches, the language
+key, done) are handled locally and never transmitted; backspace removes the last record. `space` is recorded
+like a character. The batch is always padded to `max_len` records so its length reveals nothing.
 
 ```
 record = u16 seq || u8 layout_id || u8 flags (0) || u16 x || u16 y        (x, y in device pixels)
@@ -209,11 +220,12 @@ Inputs: sealed blob, payload JSON, `ctx` (optional), `keep` flag.
    equal `ctx_hash` (constant-time compare) → else `CTX_MISMATCH`.
 4. Decrypt `ct` with `k_c2s`, `NONCE(0)`, aad `"skp/v1/input" || sid` → else `BAD_MAC`.
 5. Validate: `version == 1`, `reserved == 0`, `len == 4 + 8 × max_len`, `count ≤ max_len`, every record with
-   index `≥ count` is all zero, `seq == index`, `flags == 0`, `gen(layout_id) < gen_count`, `mode(layout_id)`
-   valid for `type`, `x < W_gen`, `y < H_gen` → else `TAMPERED`.
-6. For each record, regenerate the layout of its generation (deterministic from the blob) and hit-test (§10).
-   The hit key must have role `char` or `space` → else `TAMPERED`. Append its character.
-7. Return the UTF-8 result in locked memory. Unless `keep` is set, the caller's store must discard the blob;
+   index `≥ count` is all zero, `seq == index`, `flags == 0`, `gen(layout_id) < gen_count`,
+   `slot(layout_id) < layer count` of that generation, `x < W_gen`, `y < H_gen` → else `TAMPERED`.
+6. For each record, regenerate the layout of its generation (deterministic from the blob) and hit-test (§10)
+   the layer at `slot`. The hit key must have role `char` or `space` → else `TAMPERED`. Append its character.
+7. Compose runs of Hangul jamo into syllables (HANGUL.md); every other code point is kept as is.
+8. Return the UTF-8 result in locked memory. Unless `keep` is set, the caller's store must discard the blob;
    the library wipes every derived value before returning in all cases.
 
 Errors never carry values or coordinates; they are enumerated codes only.
@@ -224,7 +236,7 @@ Errors never carry values or coordinates; they are enumerated codes only.
 sealed = nonce24 || XAEAD(k_state, nonce24, "skp/v1/state" || kid, state)
 ```
 
-`state` (big-endian, fixed layout, `146 + 37 × gen_count` bytes):
+`state` (big-endian, fixed layout, `150 + 37 × gen_count` bytes):
 
 | Offset | Size | Field |
 |---|---|---|
@@ -243,7 +255,9 @@ sealed = nonce24 || XAEAD(k_state, nonce24, "skp/v1/state" || kid, state)
 | 74 | 32 | k_s2c |
 | 106 | 32 | k_c2s |
 | 138 | 8 | s2c_ctr |
-| 146 | 37 × n | generations: `seed[32] || u16 W || u16 dpr_milli || u8 platform (1 ios, 2 android, 3 web)` |
+| 146 | 1 | language count (0 for number pads, 1..3 for qwerty) |
+| 147 | 3 | language ids in switch order (1 en, 2 ko), zero padded |
+| 150 | 37 × n | generations: `seed[32] || u16 W || u16 dpr_milli || u8 platform (1 ios, 2 android, 3 web)` |
 
 The blob is opaque to everyone but the server library. Stores may keep it anywhere; it reveals nothing
 without `k_state`.
@@ -282,4 +296,6 @@ where the gaps between keys belong to the nearest key.
 - the server's response (`sp`, `sig`, `ct`) and sealed blob byte for byte,
 - the client's derived keys and decrypted inner JSON,
 - the client's input payload for a given tap list,
-- the server's decrypted string.
+- the server's decrypted string (with Hangul composed).
+
+`spec/vectors/hangul/compose.json` lists jamo sequences and the text they compose to (HANGUL.md).

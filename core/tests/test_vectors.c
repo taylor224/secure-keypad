@@ -54,6 +54,17 @@ static void run_vector(const char *path) {
     opts.blank = jstr(so, "blank");
     opts.ttl_sec = (uint32_t)jint(so, "ttl");
     opts.max_len = (uint32_t)jint(so, "maxLen");
+    char langs_csv[64] = "";
+    const cJSON *langs = cJSON_GetObjectItemCaseSensitive(so, "languages");
+    if (cJSON_IsArray(langs)) {
+        const cJSON *code;
+        cJSON_ArrayForEach(code, langs) {
+            if (*langs_csv)
+                strncat(langs_csv, ",", sizeof langs_csv - strlen(langs_csv) - 1);
+            strncat(langs_csv, code->valuestring, sizeof langs_csv - strlen(langs_csv) - 1);
+        }
+        opts.languages = langs_csv;
+    }
 
     char *req = cJSON_PrintUnformatted(cJSON_GetObjectItemCaseSensitive(v, "request"));
     skp_buf resp = {0}, sealed = {0};

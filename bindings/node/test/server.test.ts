@@ -19,10 +19,12 @@ import { keygen, MemoryStore, SecureKeypadServer, SkpError, Secret } from "../sr
 const MASTER = "0f1e2d3c4b5a69788796a5b4c3d2e1f0f0e1d2c3b4a5968778695a4b3c2d1e0f";
 const vector = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "spec", "vectors", "qwerty-ios-390x3-shuffle.json"), "utf8"));
 
-/** Characters of the fixed (unshuffled) layout in listing order, per mode. */
+/** Characters of the fixed (unshuffled) layers in listing order, keyed by "lang/mode" for letter layers. */
 const FIXED: Record<string, string> = {
-  lower: "qwertyuiopasdfghjklzxcvbnm",
-  upper: "QWERTYUIOPASDFGHJKLZXCVBNM",
+  "en/lower": "qwertyuiopasdfghjklzxcvbnm",
+  "en/upper": "QWERTYUIOPASDFGHJKLZXCVBNM",
+  "ko/lower": "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ",
+  "ko/upper": "ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ",
   sym1: "1234567890-/:;()$&@\".,?!'",
   sym2: "[]{}#%^*+=_\\|~<>€£¥•.,?!'",
 };
@@ -34,7 +36,7 @@ function tapsForFixed(layout: LayoutSet, text: string): Tap[] {
         const k = layer.keys.find((k) => k.role === "space");
         if (k) return { layoutId: layer.id, x: k.r[0] + (k.r[2] >> 1), y: k.r[1] + (k.r[3] >> 1) };
       }
-      const chars = FIXED[layer.mode];
+      const chars = FIXED[layer.lang ? `${layer.lang}/${layer.mode}` : layer.mode];
       if (!chars) continue;
       const idx = Array.from(chars).indexOf(ch);
       if (idx < 0) continue;
@@ -45,9 +47,9 @@ function tapsForFixed(layout: LayoutSet, text: string): Tap[] {
   });
 }
 
-async function open(server: SecureKeypadServer, type: "qwerty" | "number", opts: any = {}, viewport = { w: 390, dpr: 3, platform: "ios" as const }) {
+async function open(server: SecureKeypadServer, type: "qwerty" | "number", opts: any = {}, viewport = { w: 390, dpr: 3, platform: "ios" as const }, langs?: string[]) {
   const keys = generateClientKeys();
-  const request = buildSessionRequest(keys, type, viewport, opts.maxLen);
+  const request = buildSessionRequest(keys, type, viewport, opts.maxLen, langs);
   const response = await server.createSession(request, opts);
   const session = openSession(response as any, keys, server.publicKey);
   return { session, sid: session.sidB64 };
@@ -85,6 +87,8 @@ describe("SecureKeypadServer", () => {
   it("round trips a fixed-layout qwerty session end to end", async () => {
     const { session } = await open(server, "qwerty", { layout: "fixed", ctx: "user-1", maxLen: 24 });
     expect(session.layout.maxLen).toBe(24);
+    expect(session.layout.langs).toEqual(["en", "ko"]); // the default when nobody names languages
+    expect(session.layout.layouts.map((l) => `${l.lang ?? "-"}/${l.mode}`)).toEqual(["en/lower", "en/upper", "ko/lower", "ko/upper", "-/sym1", "-/sym2"]);
     expect(session.tiles.length).toBeGreaterThan(100);
     const text = "Hello, w0rld! [€]";
     const payload = buildInputPayload(session, tapsForFixed(session.layout, text));
@@ -132,6 +136,29 @@ describe("SecureKeypadServer", () => {
     const secret = await server.decrypt(buildInputPayload(session, taps), { ctx: "rot" });
     expect(secret.toString()).toBe("abCD 9");
     await expect(server.relayout({ v: 1, sid, viewport: { w: 1, dpr: 1, platform: "ios" } })).rejects.toMatchObject({ kind: "SESSION_NOT_FOUND" });
+  });
+
+  it("installs the requested languages, shows a lang key, and composes Hangul on the server", async () => {
+    const { session } = await open(server, "qwerty", { layout: "fixed", ctx: "ko", languages: ["ko", "en"] });
+    expect(session.layout.langs).toEqual(["ko", "en"]);
+    expect(session.layout.layouts[0].lang).toBe("ko");
+    for (const layer of session.layout.layouts) expect(layer.keys.filter((k) => k.role === "lang")).toHaveLength(1);
+    const secret = await server.decrypt(buildInputPayload(session, tapsForFixed(session.layout, "ㅎㅏㄴㄱㅡㄹ Pw!")), { ctx: "ko" });
+    expect(secret.toString()).toBe("한글 Pw!");
+    // a single language (string form) has no lang key; the client's request is honoured when the server is silent
+    const solo = await open(server, "qwerty", { layout: "fixed", languages: "ko" });
+    expect(solo.session.layout.langs).toEqual(["ko"]);
+    expect(solo.session.layout.layouts).toHaveLength(4);
+    expect(solo.session.layout.layouts.flatMap((l) => l.keys).some((k) => k.role === "lang")).toBe(false);
+    const asked = await open(server, "qwerty", { layout: "fixed" }, undefined, ["ko"]);
+    expect(asked.session.layout.langs).toEqual(["ko"]);
+    const overridden = await open(server, "qwerty", { layout: "fixed", languages: ["en"] }, undefined, ["ko"]);
+    expect(overridden.session.layout.langs).toEqual(["en"]);
+    await expect(open(server, "qwerty", { languages: ["xx"] })).rejects.toMatchObject({ kind: "UNSUPPORTED" });
+    await expect(open(server, "qwerty", {}, undefined, ["en", "en"])).rejects.toMatchObject({ kind: "BAD_REQUEST" });
+    // number pads ignore languages
+    const num = await open(server, "number", { languages: ["ko"] });
+    expect(num.session.layout.langs).toEqual([]);
   });
 
   it("maps errors", async () => {

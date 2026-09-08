@@ -54,7 +54,8 @@ async def create_session(req: Request):
     body = await req.json()
     try:
         return skp.create_session(body, ctx=_ctx(body), layout=os.environ.get("SKP_LAYOUT", "shuffle"),
-                                  blank=os.environ.get("SKP_BLANK", "fixed"))
+                                  blank=os.environ.get("SKP_BLANK", "fixed"),
+                                  languages=os.environ.get("SKP_LANGUAGES") or None)  # e.g. "en,ko" or "ko"
     except SkpError as e:
         raise _bad(e)
 

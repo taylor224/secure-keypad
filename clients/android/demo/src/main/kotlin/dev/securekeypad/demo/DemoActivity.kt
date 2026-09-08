@@ -53,7 +53,8 @@ class DemoActivity : Activity() {
             serverPublicKey = SERVER_PUBLIC_KEY, type = KeypadType.NUMBER, maxLen = 6))
         passwordKeypad = SecureKeypad(this, SecureKeypad.Config(
             sessionUrl = "$SERVER/keypad/session", relayoutUrl = "$SERVER/keypad/relayout",
-            serverPublicKey = SERVER_PUBLIC_KEY, type = KeypadType.QWERTY, maxLen = 32))
+            serverPublicKey = SERVER_PUBLIC_KEY, type = KeypadType.QWERTY, maxLen = 32,
+            languages = listOf("ko", "en")))   // Korean first, globe key switches to English; omit for the server default (en, ko)
         pinKeypad.onError = { status.text = "PIN keypad: ${it.code}" }
         passwordKeypad.onError = { status.text = "Password keypad: ${it.code}" }
         pinKeypad.attach(pin)

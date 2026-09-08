@@ -18,4 +18,5 @@ import { SecureKeypadProvider, SecureKeypadInput } from "@secure-keypad/react";
 - For JSON submits use the hook: `const { inputRef, submit, length, ready } = useSecureKeypad({ type: "qwerty" })`,
   render `<input ref={inputRef} type="password" />`, and call `submit()` to get the payload.
 - `onSubmit(payload)` fires when the user presses Done; the session is consumed at that point.
-- Every option of `createSecureKeypad` can be passed through `keypad={{ ... }}` or the provider.
+- Every option of `createSecureKeypad` can be passed through `keypad={{ ... }}` or the provider, e.g.
+  `keypad={{ languages: ["ko", "en"] }}` for a Korean-first QWERTY keypad.

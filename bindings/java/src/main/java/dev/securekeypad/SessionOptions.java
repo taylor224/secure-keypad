@@ -12,6 +12,10 @@ package dev.securekeypad;
  *   <li>{@code blank}: {@code "fixed"} (default) or {@code "random"}; number pad only.</li>
  *   <li>{@code ttlSec}: session lifetime, 0 for the server default.</li>
  *   <li>{@code maxLen}: overrides the client's requested maximum length when {@code > 0}.</li>
+ *   <li>{@code languages}: languages of the QWERTY keypad in switch order ({@code "en"} Latin,
+ *       {@code "ko"} Korean 2-set, composed server-side), e.g. {@code ["en", "ko"]} or {@code ["ko"]}.
+ *       Unset: the client's request ({@code opts.langs}) is honoured, else English + Korean. Ignored for
+ *       number pads.</li>
  * </ul>
  */
 public final class SessionOptions {
@@ -22,6 +26,7 @@ public final class SessionOptions {
     private final String blank;
     private final int ttlSec;
     private final int maxLen;
+    private final String languages;
 
     private SessionOptions(Builder b) {
         this.ctx = b.ctx;
@@ -29,6 +34,7 @@ public final class SessionOptions {
         this.blank = b.blank;
         this.ttlSec = b.ttlSec;
         this.maxLen = b.maxLen;
+        this.languages = b.languages;
     }
 
     public static Builder builder() {
@@ -60,12 +66,18 @@ public final class SessionOptions {
         return maxLen;
     }
 
+    /** Comma-separated language codes, or {@code null} when unset. */
+    public String languages() {
+        return languages;
+    }
+
     public static final class Builder {
         private String ctx;
         private String layout;
         private String blank;
         private int ttlSec;
         private int maxLen;
+        private String languages;
 
         private Builder() {
         }
@@ -98,6 +110,17 @@ public final class SessionOptions {
                 throw new IllegalArgumentException("maxLen");
             }
             this.maxLen = maxLen;
+            return this;
+        }
+
+        /** Languages in switch order, e.g. {@code languages("en", "ko")} or {@code languages("ko")}. */
+        public Builder languages(String... codes) {
+            this.languages = codes == null || codes.length == 0 ? null : String.join(",", codes);
+            return this;
+        }
+
+        public Builder languages(java.util.List<String> codes) {
+            this.languages = codes == null || codes.isEmpty() ? null : String.join(",", codes);
             return this;
         }
 

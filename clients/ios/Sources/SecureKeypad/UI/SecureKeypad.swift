@@ -28,6 +28,12 @@ public final class SecureKeypad {
         public var type: KeypadType
         /// Requested maximum length; the server may lower it.
         public var maxLen: Int?
+        /// Keyboard languages requested for QWERTY keypads, in switch order (first shown initially), e.g.
+        /// ["en", "ko"] or ["ko"]. The server may override it; when nobody says anything it installs
+        /// ["en", "ko"]. With two or more languages the keypad shows a globe key that cycles them.
+        public var languages: [String]?
+        /// Space-bar labels per language code when several are installed (default: English / 한국어).
+        public var languageNames: [String: String] = [:]
         public var theme: ThemeMode = .auto
         public var haptics = true
         public var sound = true
@@ -52,6 +58,10 @@ public final class SecureKeypad {
     public var onChange: ((Int) -> Void)?
     public var onDone: (() -> Void)?
     public var onStateChange: ((State) -> Void)?
+    /// The user switched keyboard language (code such as "en" or "ko").
+    public var onLanguageChange: ((String) -> Void)?
+    /// Current keyboard language, nil for number pads or before the first layout.
+    public var language: String? { inputView.language }
     /// The session expired before `submit()`; a fresh session is started automatically.
     public var onExpire: (() -> Void)?
     public var onError: ((Error) -> Void)?
@@ -72,6 +82,7 @@ public final class SecureKeypad {
         self.inputView = SecureKeypadInputView()
         inputView.haptics = config.haptics
         inputView.sound = config.sound
+        inputView.languageNames = config.languageNames
         inputView.setThemeMode(config.theme)
         if let k = config.serverPublicKey {
             serverKey = Base64.decode(k)
@@ -80,6 +91,7 @@ public final class SecureKeypad {
         inputView.onTap = { [weak self] tap in self?.record(tap) }
         inputView.onBackspace = { [weak self] in self?.backspace() }
         inputView.onDone = { [weak self] in self?.onDone?() }
+        inputView.onLang = { [weak self] code in self?.onLanguageChange?(code) }
         inputView.onWidthChange = { [weak self] w in self?.scheduleRelayout(width: w) }
         installObservers()
     }
@@ -161,7 +173,7 @@ public final class SecureKeypad {
         let cfg = config
         loadTask = Task { [weak self] in
             do {
-                let body = try s.requestJSON(type: cfg.type, viewport: viewport, maxLen: cfg.maxLen)
+                let body = try s.requestJSON(type: cfg.type, viewport: viewport, maxLen: cfg.maxLen, languages: cfg.languages)
                 let data = try await cfg.transport.post(url: cfg.sessionURL, body: body)
                 let response = try SessionResponse.decode(data)
                 await MainActor.run { [weak self] in
@@ -224,6 +236,12 @@ public final class SecureKeypad {
 
     private func updateField() {
         textField?.text = String(repeating: "\u{2022}", count: taps.count)
+    }
+
+    /// Switches to one of the installed languages; returns false when the current layout does not offer it.
+    @discardableResult
+    public func setLanguage(_ code: String) -> Bool {
+        inputView.setLanguage(code)
     }
 
     /// Encrypts the recorded taps and returns the opaque payload JSON to send with your form. The session

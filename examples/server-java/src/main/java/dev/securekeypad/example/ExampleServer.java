@@ -39,9 +39,11 @@ public final class ExampleServer {
         SecureKeypadServer skp = buildServer();
         int port = Integer.parseInt(env("PORT", "8080"));
         String layout = env("SKP_LAYOUT", "shuffle");
+        String languages = env("SKP_LANGUAGES", ""); // e.g. "en,ko" or "ko"; empty honours the client's request
         HttpServer http = HttpServer.create(new InetSocketAddress(port), 0);
         http.createContext("/keypad/session", ex -> serve(ex, (e, body) ->
-                skp.createSession(body, SessionOptions.builder().ctx(ctxOf(e)).layout(layout).build())));
+                skp.createSession(body, SessionOptions.builder().ctx(ctxOf(e)).layout(layout)
+                        .languages(languages.isEmpty() ? null : languages.split(",")).build())));
         http.createContext("/keypad/relayout", ex -> serve(ex, (e, body) -> skp.relayout(body)));
         http.createContext("/login", ex -> serve(ex, (e, body) -> {
             try (Secret secret = skp.decrypt(body, ctxOf(e))) {

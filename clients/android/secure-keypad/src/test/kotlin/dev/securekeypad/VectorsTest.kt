@@ -88,7 +88,34 @@ class VectorsTest {
                 assertEquals("STATE", e.code)
             }
         }
-        assertEquals(7, n)
+        assertEquals(11, n)
+    }
+
+    @Test
+    fun languageLayersAndLangKeyAreParsed() {
+        val v = vectors().first { it.getString("name") == "qwerty-ios-390x3-ko-en-shuffle" }
+        val client = ClientSession.fromPrivateKey(hex(v.getString("client_sk")))
+        val opened = client.open(v.getJSONObject("expect_session").getJSONObject("response").toString(), null)
+        val layout = opened.initial.layout
+        assertEquals(listOf("ko", "en"), layout.langs)
+        assertEquals(listOf("ko", "ko", "en", "en", null, null), layout.layouts.map { it.lang })
+        assertEquals(listOf("lower", "upper", "lower", "upper", "sym1", "sym2"), layout.layouts.map { it.mode })
+        assertEquals(2, layout.layer("lower", "en")!!.id)
+        assertEquals(0, layout.layer("lower")!!.id)
+        for (l in layout.layouts) assertEquals("one lang key per layer", 1, l.keys.count { it.role == Role.LANG })
+        // the request carries the languages the client asked for
+        val request = v.getJSONObject("request")
+        val vp = request.getJSONObject("viewport")
+        val json = JSONObject(client.requestJson(dev.securekeypad.protocol.KeypadType.QWERTY,
+            dev.securekeypad.protocol.Viewport(vp.getDouble("w"), vp.getDouble("dpr"), vp.getString("platform")),
+            request.getJSONObject("opts").getInt("maxLen"), listOf("ko", "en")))
+        assertEquals(request.getJSONObject("opts").getJSONArray("langs").toString(), json.getJSONObject("opts").getJSONArray("langs").toString())
+        // English-only vectors have no lang key and no languages beyond en
+        val en = vectors().first { it.getString("name") == "qwerty-ios-390x3-shuffle" }
+        val l2 = ClientSession.fromPrivateKey(hex(en.getString("client_sk")))
+            .open(en.getJSONObject("expect_session").getJSONObject("response").toString(), null).initial.layout
+        assertEquals(listOf("en"), l2.langs)
+        assertTrue(l2.layouts.none { l -> l.keys.any { it.role == Role.LANG } })
     }
 
     /** Structural JSON equality (org.json on Android has no `similar`). */
@@ -115,9 +142,11 @@ class VectorsTest {
         o.put("gen", l.gen)
         o.put("maxLen", l.maxLen)
         o.put("exp", l.expSeconds)
+        o.put("langs", org.json.JSONArray(l.langs))
         val layouts = org.json.JSONArray()
         for (layer in l.layouts) {
             val lo = JSONObject().put("id", layer.id).put("mode", layer.mode)
+            if (layer.lang != null) lo.put("lang", layer.lang)
             val keys = org.json.JSONArray()
             for (k in layer.keys) {
                 val ko = JSONObject()

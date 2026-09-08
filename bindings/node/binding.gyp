@@ -15,8 +15,10 @@
         "<(core_dir)/src/skp_state.c",
         "<(core_dir)/src/skp_session.c",
         "<(core_dir)/third_party/cJSON.c",
+        "<(core_dir)/src/skp_hangul.c",
         "<(SHARED_INTERMEDIATE_DIR)/skp_font_inter.c",
-        "<(SHARED_INTERMEDIATE_DIR)/skp_font_roboto.c"
+        "<(SHARED_INTERMEDIATE_DIR)/skp_font_roboto.c",
+        "<(SHARED_INTERMEDIATE_DIR)/skp_font_hangul.c"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
@@ -61,6 +63,12 @@
           "inputs": ["<(core_dir)/fonts/Roboto-Regular.ttf", "scripts/embed.js"],
           "outputs": ["<(SHARED_INTERMEDIATE_DIR)/skp_font_roboto.c"],
           "action": ["node", "scripts/embed.js", "<(core_dir)/fonts/Roboto-Regular.ttf", "<(SHARED_INTERMEDIATE_DIR)/skp_font_roboto.c", "skp_font_roboto"]
+        },
+        {
+          "action_name": "embed_hangul",
+          "inputs": ["<(core_dir)/fonts/NotoSansKR-Hangul.ttf", "scripts/embed.js"],
+          "outputs": ["<(SHARED_INTERMEDIATE_DIR)/skp_font_hangul.c"],
+          "action": ["node", "scripts/embed.js", "<(core_dir)/fonts/NotoSansKR-Hangul.ttf", "<(SHARED_INTERMEDIATE_DIR)/skp_font_hangul.c", "skp_font_hangul"]
         }
       ]
     }
