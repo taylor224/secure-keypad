@@ -399,8 +399,8 @@ class SecureKeypadServer:
         The sealed session state is stored under the response ``sid`` with the session's TTL.
         ``ctx`` binds the session to an application context (user id, login attempt); the same value
         must be passed to :meth:`decrypt`. ``layout`` is ``"shuffle"`` (default), ``"full"``, or
-        ``"fixed"`` (warning: coordinates reveal characters by geometry). ``blank`` places the number
-        pad's empty cell (``"fixed"`` | ``"random"``). ``languages`` lists the QWERTY keypad's languages in
+        ``"fixed"`` (the native QWERTY / 2-set / phone-pad order; warning: coordinates reveal characters
+        by geometry). ``blank`` places a shuffled number pad's empty cell (``"fixed"`` | ``"random"``). ``languages`` lists the QWERTY keypad's languages in
         switch order (``["en", "ko"]``, ``["ko"]``, or ``"en,ko"``); ``None`` honours the client's request
         (``opts.langs``) and otherwise defaults to English + Korean. Ignored for number pads.
         """

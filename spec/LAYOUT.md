@@ -123,11 +123,12 @@ Policies:
 |---|---|---|
 | `shuffle` (0) | for each language in order, `fy` each of its three rows; then each row of `sym1`, then each row of `sym2` (stream order). `upper` mirrors `lower` through the shift mapping. | `fy(digits)` |
 | `full` (1) | for each language in order, `fy` its concatenated 26 characters and split 10/9/7; then `sym1` (25) split 10/10/5; then `sym2` | same as shuffle |
-| `fixed` (2) | no stream consumption | `fy(digits)` (a fixed number pad is never generated) |
+| `fixed` (2) | no stream consumption | the native phone pad `1 2 3 / 4 5 6 / 7 8 9 / blank 0 backspace`: digits `1…9, 0` in order, blank in cell 9 (`blank` is ignored), no stream consumption |
 
 Number pad blank placement follows the digit shuffle: `blank = fixed` puts the blank in cell 9;
 `blank = random` draws `b = uniform(11)` and blanks the `b`-th cell among cells 0..10 (cell 11 is always
-`backspace`). Digits fill the remaining cells in row-major order.
+`backspace`). Digits fill the remaining cells in row-major order. As with QWERTY, a `fixed` number pad lets
+coordinates reveal digits; the server logs the same warning.
 
 ## 5. Number pad (type 2)
 

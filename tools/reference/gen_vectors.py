@@ -128,6 +128,9 @@ def main():
              {"ctx": "user-42", "layout": "shuffle", "blank": "fixed"}, "092817", base_hooks(0x05), bytes([0x25]) * 32, errors=number_errors),
         make("number-material-412x2.625-blank-random", {"v": 1, "type": "number", "viewport": {"w": 412, "dpr": 2.625, "platform": "web"}, "opts": {"maxLen": 6}},
              {"layout": "shuffle", "blank": "random"}, "000123", base_hooks(0x06), bytes([0x26]) * 32),
+        # fixed number pad: the native phone layout 1 2 3 / 4 5 6 / 7 8 9 / blank 0 backspace ("blank" is ignored)
+        make("number-ios-390x3-fixed", {"v": 1, "type": "number", "viewport": {"w": 390, "dpr": 3, "platform": "ios"}, "opts": {"maxLen": 8}},
+             {"ctx": "pin-fixed", "layout": "fixed", "blank": "random"}, "19047", base_hooks(0x0C), bytes([0x2C]) * 32),
         make("qwerty-ios-relayout-portrait-to-landscape", {"v": 1, "type": "qwerty", "viewport": {"w": 390, "dpr": 3, "platform": "ios"}},
              {"ctx": "rot", "layout": "shuffle", "languages": ["en"]}, "ab", base_hooks(0x07), bytes([0x27]) * 32,
              relayout_vp={"w": 844, "dpr": 3, "platform": "ios"}, text2="CD 9"),

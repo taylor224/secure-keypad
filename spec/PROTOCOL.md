@@ -74,7 +74,7 @@ Server-side options are supplied by the integrator's code, never by the client:
 |---|---|---|
 | `ctx` | none | opaque binding string (user id, login attempt id). Must be presented again at decrypt |
 | `layout` | `"shuffle"` | `"shuffle"`, `"full"`, or `"fixed"` (see LAYOUT.md §4) |
-| `blank` | `"fixed"` | `"fixed"` or `"random"` (number pad only) |
+| `blank` | `"fixed"` | `"fixed"` or `"random"` (number pad only; ignored when `layout` is `"fixed"`) |
 | `languages` | none | keyboard languages in switch order (`"en,ko"`, `"ko"`, …). Overrides `opts.langs`; unknown or repeated codes are `UNSUPPORTED`. Ignored for number pads |
 | `ttl` | 180 s | session lifetime |
 | `maxLen` | 0 | if `> 0`, overrides the client's request |

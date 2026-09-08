@@ -78,6 +78,13 @@ def test_fixed_layout_is_identity():
     _, _, dbg = R.create_session(m, req(c_pk=c_pk), {"layout": "fixed"})
     lower = [k.ch for k in dbg["layout"].layers[0].keys if k.role == "char"]
     assert "".join(lower) == "qwertyuiopasdfghjklzxcvbnm"
+    # the fixed number pad is the native phone pad whatever "blank" says; shuffled pads still move the blank
+    for blank in ("fixed", "random"):
+        _, _, dbg = R.create_session(m, req("number", c_pk=c_pk), {"layout": "fixed", "blank": blank})
+        cells = [k.ch if k.role == "char" else k.role for k in dbg["layout"].layers[0].keys]
+        assert cells == list("123456789") + ["blank", "0", "backspace"]
+    _, _, dbg = R.create_session(m, req("number", c_pk=c_pk), {"layout": "shuffle"}, R.Hooks(seed=b"\x05" * 32))
+    assert [k.ch for k in dbg["layout"].layers[0].keys if k.role == "char"] != list("1234567890")
 
 
 def test_shuffle_is_seeded_and_upper_mirrors_lower():

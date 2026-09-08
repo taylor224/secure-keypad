@@ -175,9 +175,9 @@ export type KeypadLanguage = "en" | "ko";
 export interface CreateSessionOptions {
   /** Binding context (user id, login attempt id). Must be passed again to `decrypt`. */
   ctx?: string;
-  /** "shuffle" (default) | "full" | "fixed" */
+  /** "shuffle" (default) | "full" | "fixed" (native QWERTY / 2-set / phone-pad order; coordinates reveal characters) */
   layout?: "shuffle" | "full" | "fixed";
-  /** Number pad blank cell: "fixed" (default) | "random" */
+  /** Shuffled number pad blank cell: "fixed" (default) | "random"; ignored with layout "fixed" */
   blank?: "fixed" | "random";
   ttl?: number;
   maxLen?: number;

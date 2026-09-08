@@ -179,6 +179,18 @@ class SecureKeypadServerTest {
     }
 
     @Test
+    void fixedNumberPadIsThePhonePad() throws Exception {
+        try (SecureKeypadServer s = newServer()) {
+            TestClient c = new TestClient();
+            c.open(s.createSession(c.request("number", 390, 3, "ios", null),
+                    SessionOptions.builder().layout("fixed").blank("random").build()), serverSigningKey(s));
+            try (Secret secret = s.decrypt(c.payload(c.maxLen(), TestClient.allCharTaps(c.inner, 0)), null)) {
+                assertEquals("1234567890", secretText(secret));
+            }
+        }
+    }
+
+    @Test
     void relayoutKeepsMappingAndOldTaps() throws Exception {
         try (SecureKeypadServer s = newServer()) {
             TestClient c = new TestClient();

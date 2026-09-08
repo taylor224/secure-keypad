@@ -204,6 +204,17 @@ def test_number_pad_is_a_permutation(server):
         assert sorted(secret.text) == list("0123456789")
 
 
+def test_fixed_number_pad_is_the_phone_pad(server):
+    c_sk, c_pk = client_keys()
+    resp = server.create_session(request(c_pk, "number"), layout="fixed", blank="random")
+    opened = R.client_open(resp, c_sk, base64.b64decode(server.public_key))
+    layer = opened["inner"]["layouts"][0]
+    assert [k["role"] for k in layer["keys"]] == ["char"] * 9 + ["blank", "char", "backspace"]
+    taps = [(layer["id"], k["r"][0] + k["r"][2] // 2, k["r"][1] + k["r"][3] // 2) for k in layer["keys"] if k["role"] == "char"]
+    with server.decrypt(R.client_build_input(opened["k_c2s"], opened["sid"], opened["inner"]["maxLen"], taps)) as secret:
+        assert secret.text == "1234567890"
+
+
 def test_relayout_keeps_mapping(server):
     c_sk, c_pk = client_keys()
     pk = base64.b64decode(server.public_key)

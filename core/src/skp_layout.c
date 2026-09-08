@@ -370,8 +370,19 @@ int skp_layout_build(skp_layout *out, int type, int policy, int blank, int style
         sodium_memzero(s22, sizeof s22);
     } else {
         uint32_t digits[10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
-        drbg_fy(&d, digits, 10);
-        uint32_t b = blank == SKP_BLANK_RANDOM ? drbg_uniform(&d, 11) : 9;
+        uint32_t b = 9;
+        if (policy == SKP_POLICY_FIXED) {
+            /* the native phone pad: 1 2 3 / 4 5 6 / 7 8 9 / blank 0 backspace, no stream consumption */
+            static const uint32_t PHONE[10] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
+            copy_row(digits, PHONE, 10);
+        } else if (policy == SKP_POLICY_SHUFFLE || policy == SKP_POLICY_FULL) {
+            drbg_fy(&d, digits, 10);
+            if (blank == SKP_BLANK_RANDOM)
+                b = drbg_uniform(&d, 11);
+        } else {
+            drbg_free(&d);
+            return SKP_ERR_UNSUPPORTED;
+        }
         int32_t nkh = skp_px(m->num_key_h, dpr_milli);
         rect_t cols[3];
         row_rects(cols, ix, W - ix, 3, g, 0, nkh);

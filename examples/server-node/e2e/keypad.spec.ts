@@ -86,8 +86,7 @@ test.describe("secure-keypad web demo", () => {
     const result = await page.evaluate(() => (window as any).__skp.lastLogin);
     expect(result.ok).toBe(true);
     expect(result.pinLength).toBe(4);
-    expect(result.pin).toMatch(/^[0-9]{4}$/);
-    expect(new Set(result.pin.split("")).size).toBe(4);
+    expect(result.pin).toBe("1236"); // fixed pad: 1 2 3 4 typed, 4 deleted, then cell 5 = 6
     // the DOM never held the value
     await expect(pin).toHaveValue("");
   });

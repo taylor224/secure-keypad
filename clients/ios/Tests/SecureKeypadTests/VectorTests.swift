@@ -32,7 +32,7 @@ final class VectorTests: XCTestCase {
 
     func testAllVectors() throws {
         let vectors = try loadVectors()
-        XCTAssertEqual(vectors.count, 11)
+        XCTAssertEqual(vectors.count, 12)
         for (name, v) in vectors {
             try runVector(name, v)
         }

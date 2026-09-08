@@ -343,8 +343,13 @@ def shuffle_charsets(type_: int, policy: int, blank: int, langs: list, seed: byt
             raise SkpError("UNSUPPORTED", "policy")
         return letters, sym1, sym2
     if type_ == TYPE_NUMBER:
-        digits = d.fy(list(DIGITS))
-        b = d.uniform(11) if blank == BLANKS["random"] else 9
+        if policy == POLICIES["fixed"]:
+            digits, b = list("1234567890"), 9   # the native phone pad, no stream consumption
+        elif policy in (POLICIES["shuffle"], POLICIES["full"]):
+            digits = d.fy(list(DIGITS))
+            b = d.uniform(11) if blank == BLANKS["random"] else 9
+        else:
+            raise SkpError("UNSUPPORTED", "policy")
         cells, it = [], iter(digits)
         for c in range(12):
             if c == 11:

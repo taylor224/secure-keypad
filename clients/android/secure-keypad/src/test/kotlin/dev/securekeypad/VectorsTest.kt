@@ -88,7 +88,7 @@ class VectorsTest {
                 assertEquals("STATE", e.code)
             }
         }
-        assertEquals(11, n)
+        assertEquals(12, n)
     }
 
     @Test

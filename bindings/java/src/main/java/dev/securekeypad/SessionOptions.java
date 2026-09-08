@@ -7,9 +7,10 @@ package dev.securekeypad;
  *   <li>{@code ctx}: binding context (user id, login attempt id). The same value must be passed to
  *       {@link SecureKeypadServer#decrypt}; a mismatch fails with {@code CTX_MISMATCH}.</li>
  *   <li>{@code layout}: {@code "shuffle"} (default), {@code "full"}, or {@code "fixed"}. {@code fixed}
- *       keeps the native QWERTY order and therefore lets coordinates reveal characters; the core logs
- *       a warning.</li>
- *   <li>{@code blank}: {@code "fixed"} (default) or {@code "random"}; number pad only.</li>
+ *       keeps the native order (QWERTY / 2-set / phone pad) and therefore lets coordinates reveal
+ *       characters; the core logs a warning.</li>
+ *   <li>{@code blank}: {@code "fixed"} (default) or {@code "random"}; number pad only, ignored with
+ *       {@code layout = "fixed"}.</li>
  *   <li>{@code ttlSec}: session lifetime, 0 for the server default.</li>
  *   <li>{@code maxLen}: overrides the client's requested maximum length when {@code > 0}.</li>
  *   <li>{@code languages}: languages of the QWERTY keypad in switch order ({@code "en"} Latin,

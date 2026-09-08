@@ -61,7 +61,7 @@
           <li>키를 누르면 좌표만 기록됩니다. 로그인 버튼은 좌표 묶음을 암호화한 페이로드를 <code>POST /login</code>으로 보냅니다.</li>
           <li>서버 SDK가 좌표를 글자로 복원하고, 한글 자모는 음절로 조합한 뒤 세션을 파기합니다. 같은 페이로드를 다시 보내면 <code>410</code>입니다.</li>
         </ol>
-        <p class="muted">배열을 <b>fixed</b>로 바꾸면 표준 QWERTY·두벌식이 되지만 좌표만으로 글자를 알 수 있어 서버가 경고를 남깁니다. <b>shuffle</b>과 <b>full</b>은 둘 다 무작위라 겉으로는 비슷합니다. full은 줄을 넘나들며 섞습니다.</p>
+        <p class="muted">배열을 <b>fixed</b>로 바꾸면 QWERTY·두벌식·숫자판 모두 표준 배열(숫자판은 1 2 3 / 4 5 6 / 7 8 9 / 0)이 되지만 좌표만으로 글자를 알 수 있어 서버가 경고를 남깁니다. <b>shuffle</b>과 <b>full</b>은 둘 다 무작위라 겉으로는 비슷합니다. full은 줄을 넘나들며 섞습니다.</p>
         <p class="muted">스타일 <b>auto</b>는 Mac·iPhone에서 iOS, 그 외에서 Material을 고릅니다. Material은 그림자 없는 키, 더 둥근 모서리, <code>?123</code> 라벨로 구분됩니다.</p>
         <p class="muted">언어는 서버 옵션(<code>languages</code>)이 우선하고, 없으면 클라이언트 요청, 그것도 없으면 영어 + 한국어입니다. 두 개 이상이면 지구본 키가 생깁니다.</p>
       </aside>

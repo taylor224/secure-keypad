@@ -1,0 +1,89 @@
+{
+ "name": "number-ios-390x3-fixed",
+ "master_key": "0f1e2d3c4b5a69788796a5b4c3d2e1f0f0e1d2c3b4a5968778695a4b3c2d1e0f",
+ "expect_master": {
+  "kid": "d7458099",
+  "pk_sign": "5e9dbb47ce12257cb46d741da7161f80d30827588703ef22aa37ebe486c31c11",
+  "k_state": "29b7ea05c6bdfde9d30b163be236c702b99a44257adf4e6b9f11b60ac998db58"
+ },
+ "client_sk": "2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c",
+ "request": {
+  "v": 1,
+  "type": "number",
+  "viewport": {
+   "w": 390,
+   "dpr": 3,
+   "platform": "ios"
+  },
+  "opts": {
+   "maxLen": 8
+  },
+  "kp": "EAfjeUpuIZkK8s/tSFUaJE8w0vLmgogrrNlsvLMF3QM="
+ },
+ "server_opts": {
+  "ctx": "pin-fixed",
+  "layout": "fixed",
+  "blank": "random"
+ },
+ "hooks": {
+  "s_sk": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+  "sid": "0c5d0c5d0c5d0c5d0c5d0c5d0c5d0c5d",
+  "seed": "770c770c770c770c770c770c770c770c770c770c770c770c770c770c770c770c",
+  "nonce24": "f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
+  "now": 1757000000
+ },
+ "expect_session": {
+  "response": {
+   "v": 1,
+   "sid": "DF0MXQxdDF0MXQxdDF0MXQ",
+   "kid": "d7458099",
+   "sp": "l8OxC01sEzp46l3MHPZCHT+Brjex9ijOFMpvzncw8zM=",
+   "sig": "ebHjbK038ARzkwwb8iYpBytVQ9flZ2uqG7tEbNHsft8o8WoeJw2tMOngbya0AWU6FF1TxhVueAmiwKSfAeGoAA==",
+   "ct": "RR6t7whoKPZRJ+pbsVnqCuCfhwYY8sbzysQ7o42sNoPglOQcuyYdkve+z5dtizB1TOqd/RnZtTehVtFYrgfQHlrULdWm4XPOl5GZHhgx9OuBxfgkU4lBfDcDdkkRbE1iTUpIgxzcOm8atFklxBqQh4H0+Valtj1FticCsQPDZVcw735Op+BAJ9XA9chDlhVMP+b52w2oISB7aWY36HM+7ncmkrug9i+OPWegpwiI3S+fxc4kBVTlFe9jvFtKazckE+6PO5ILXs7avOIfJNyYdoSMk/BkxytiIXRXmPhV2BNTapB2mNRCGVGayjYfHRm5HedMo2V+AzERMGkhcXDirG/4tiHEU/0CZ66hMbINEvwTJlFiatshFCQUxW6t1E5eUl6L/JSfxi+U4wGD0dUVErXRTbV9MZVyitDkZzNz4dJLTGQifDySQkbNNYmxNEV4BxUJHe13LDQCDkrmzBYixC2HHB6Lf7H1K1COmtJEq/h9w2OySkS+z8zUcomeUvWBuvK9O/CTfwG1OfGP4t/e4xcxzU0sIMFCeQRg3vFoETAMUvjpoIE6hS8i7/LYPT8sQ0tyHkgXulY/YmKRAi8oe9koIMWHPolSWQsx3F8rin4O2twIMMCg5Y0qN/goxKI7olHxhcs2Lxo2f3VBObHAtBCJhbeBYa7zp1ZhjezUT+ux1JZmU7tJ4KItQEJti19+QK5p2DP6D7ayXwF1D0Hm1kW853IDNyZxwGcui580NV7+mCJ0Vp2gMv2FSa2dCLbmla1RLL5xUezF8effYenst8COJQYj7lEJhx5VBiHnv03cVgE+/fYs2j8NgXUumhXxpB/7flj5JlDPwwHlgY9xsTZ/bctfPzCYyu9tSLtMBxG6jBrbDj0ySObrJy57v6nwCoYIvzw+epcZ1b0uNW34hkOZS1DqxQoML7UthN+kkEXwctzV2en3WKKCl4LJsHXLYZfKnRYo2kR4MhXxLcsnY6M2Z3QbgqsME1mJHR2AhjdqCRcxbrVDjj1rRUYXAVINYvQWPQ=="
+  },
+  "k_s2c": "3cd1ec896c74bab47e1f4b675cd1d5f2ad5e06f95e1a573169d52a9de1a612ff",
+  "k_c2s": "2a56968863403bc3512ee96d0def4fdedb1ad73b2ee1df9f35fd7207135e4d35",
+  "inner_json": "{\"v\":1,\"type\":\"number\",\"style\":\"ios\",\"w\":1170,\"h\":648,\"gen\":0,\"maxLen\":8,\"exp\":180,\"langs\":[],\"layouts\":[{\"id\":0,\"mode\":\"number\",\"keys\":[{\"r\":[9,24,372,138],\"role\":\"char\",\"t\":0},{\"r\":[399,24,372,138],\"role\":\"char\",\"t\":1},{\"r\":[789,24,372,138],\"role\":\"char\",\"t\":2},{\"r\":[9,186,372,138],\"role\":\"char\",\"t\":3},{\"r\":[399,186,372,138],\"role\":\"char\",\"t\":4},{\"r\":[789,186,372,138],\"role\":\"char\",\"t\":5},{\"r\":[9,348,372,138],\"role\":\"char\",\"t\":6},{\"r\":[399,348,372,138],\"role\":\"char\",\"t\":7},{\"r\":[789,348,372,138],\"role\":\"char\",\"t\":8},{\"r\":[9,510,372,138],\"role\":\"blank\"},{\"r\":[399,510,372,138],\"role\":\"char\",\"t\":9},{\"r\":[789,510,372,138],\"role\":\"backspace\"}]}],\"tile\":{\"w\":372,\"h\":138,\"cols\":10,\"count\":10},\"popup\":{\"w\":207,\"h\":193,\"cols\":10,\"count\":10}}",
+  "sealed": "f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3181618151d19344595d67e198b8fe3221fa53acecc584a1ddf46d16c68c9cdea4112a53ac6995a12d3d72f9364c6baf140dd18ad263963546f9acae7fde53a19a6a4b8fa19cd74b55cd9b7d6a6b7ef67de9c1e6fe28c5c7c314efd99ae790e0029b41b0b28ec1f466d9cd430c131d21cbadda00eabbf40732e41c6006c1ed7160ffdd1878ecf45d28bfc233a67f99b9e802485b0d35b5805e15313fb258fc1fbe31b06b30467181d48b863256a9f1d1604eacbc7ae8f2fb9108415eea7d6c902e2dfbb24047ddde4d27849",
+  "mapping": {
+   "0:number": "123456789_0\\b"
+  }
+ },
+ "input": {
+  "text": "19047",
+  "taps": [
+   [
+    0,
+    195,
+    93
+   ],
+   [
+    0,
+    975,
+    417
+   ],
+   [
+    0,
+    585,
+    579
+   ],
+   [
+    0,
+    195,
+    255
+   ],
+   [
+    0,
+    195,
+    417
+   ]
+  ],
+  "payload": {
+   "v": 1,
+   "sid": "DF0MXQxdDF0MXQxdDF0MXQ",
+   "ct": "KKErnv+S1HwkBe3FgXyoR9r0E83IH2UI5gx+9HHKQY6p+nx3V4UqVvMkQfkFJyWh2V36nv4KxzOXBwSQg+d7fysRiiq9vc+e9ROktUAYq4katxIh"
+  },
+  "decrypt_now": 1757000060,
+  "expect_plain": "19047"
+ }
+}

@@ -260,6 +260,31 @@ static void test_number_pad_and_limits(void) {
     CHECK(skp_session_create(ctx, req, 0, &fixed, &resp, &sealed) == SKP_OK, "create fixed");
     skp_buf_free(&resp);
     skp_buf_free(&sealed);
+    /* a fixed number pad is the native phone pad: 1 2 3 / 4 5 6 / 7 8 9 / blank 0 backspace, "blank" ignored */
+    {
+        uint8_t seed[32] = {0x44};
+        skp_layout *l = malloc(sizeof *l);
+        CHECK(skp_layout_build(l, SKP_TYPE_NUMBER, SKP_POLICY_FIXED, SKP_BLANK_RANDOM, SKP_STYLE_IOS, NULL, 0, 1170, 3000, seed) == SKP_OK, "fixed number layout");
+        const char *want = "123456789_0\b";
+        int ok = l->layers[0].nkeys == 12;
+        for (int k = 0; ok && k < 12; k++) {
+            const skp_key *key = &l->layers[0].keys[k];
+            if (want[k] == '_')
+                ok = key->role == SKP_ROLE_BLANK;
+            else if (want[k] == '\b')
+                ok = key->role == SKP_ROLE_BACKSPACE;
+            else
+                ok = key->role == SKP_ROLE_CHAR && key->cp == (uint32_t)want[k];
+        }
+        CHECK(ok, "fixed number pad order");
+        CHECK(skp_layout_build(l, SKP_TYPE_NUMBER, SKP_POLICY_SHUFFLE, SKP_BLANK_FIXED, SKP_STYLE_IOS, NULL, 0, 1170, 3000, seed) == SKP_OK, "shuffled number layout");
+        int same = 1;
+        for (int k = 0; k < 9; k++)
+            same = same && l->layers[0].keys[k].cp == (uint32_t)want[k];
+        CHECK(!same, "shuffled number pad is not the phone pad");
+        sodium_memzero(l, sizeof *l);
+        free(l);
+    }
     skp_free(ctx);
 }
 

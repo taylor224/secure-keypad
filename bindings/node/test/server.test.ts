@@ -125,6 +125,16 @@ describe("SecureKeypadServer", () => {
     expect(Array.from(secret.toString()).sort().join("")).toBe("0123456789");
   });
 
+  it("a fixed number pad is the native phone pad, whatever the blank option says", async () => {
+    const { session } = await open(server, "number", { layout: "fixed", blank: "random" });
+    const layer = session.layout.layouts[0];
+    expect(layer.keys.map((k) => k.role)).toEqual([...Array(9).fill("char"), "blank", "char", "backspace"]);
+    const chars = layer.keys.filter((k) => k.role === "char");
+    const taps = chars.map((k) => ({ layoutId: layer.id, x: k.r[0] + (k.r[2] >> 1), y: k.r[1] + (k.r[3] >> 1) }));
+    const secret = await server.decrypt(buildInputPayload(session, taps));
+    expect(secret.toString()).toBe("1234567890");
+  });
+
   it("relayouts to a new viewport and decrypts taps from both generations", async () => {
     const { session, sid } = await open(server, "qwerty", { layout: "fixed", ctx: "rot" });
     const taps = tapsForFixed(session.layout, "ab");
