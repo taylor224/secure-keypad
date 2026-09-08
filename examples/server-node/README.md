@@ -1,0 +1,34 @@
+# Express example + web playground
+
+```
+npm install && npm run build          # from the repository root (builds the Node SDK and the web client)
+cd examples/server-node
+npm run demo                          # http://localhost:3789
+```
+
+`npm run demo` starts the server with two switches that exist only for the playground:
+
+| Variable | Effect |
+|---|---|
+| `SKP_ALLOW_CLIENT_LAYOUT=1` | honours the `X-Keypad-Layout` header so the pages can switch `shuffle / full / fixed` |
+| `SKP_DEMO_ECHO=1` | `/login` returns the decrypted values so the result panel can show them. **Never** in production |
+
+`npm start` runs without them. Configure the key with `SKP_MASTER_KEY_PATH` or `SKP_MASTER_KEY`; without
+either a throw-away key is generated for the process.
+
+## Pages (`examples/web-vanilla`)
+
+| Page | What it shows |
+|---|---|
+| `/` | A normal web login page; mouse on desktop, touch on phones. Style and layout selectable. |
+| `/ios.html` | iPhone frame (390 × 844 pt) running the app screen with the iOS-style keypad, popups, dynamic island, home indicator. |
+| `/android.html` | Pixel frame (412 × 915 dp) with the Material-style keypad, camera hole, gesture bar. |
+| `/app.html?device=ios\|android` | The app screen itself; open it directly on a real phone. |
+
+Routes: `GET /keypad/public-key`, `POST /keypad/session`, `POST /keypad/relayout`, `POST /login`.
+
+## E2E
+
+```
+npm run e2e        # Playwright: iPhone WebKit, Pixel Chromium, desktop Chromium
+```

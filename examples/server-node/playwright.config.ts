@@ -12,7 +12,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `SKP_E2E_ECHO=1 SKP_ALLOW_CLIENT_LAYOUT=1 PORT=${port} node server.mjs`,
+    command: `SKP_DEMO_ECHO=1 SKP_ALLOW_CLIENT_LAYOUT=1 PORT=${port} node server.mjs`,
     port,
     reuseExistingServer: false,
     timeout: 30_000,

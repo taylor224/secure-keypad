@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>secure-keypad app screen</title>
+  <style>
+    :root { --bg: #f5f6f8; --card: #fff; --ink: #111418; --muted: #6b7280; --line: #e3e6ec; --accent: #0b6b6e; --field: #f0f2f5; }
+    html[data-theme="dark"] { --bg: #000; --card: #16181d; --ink: #f2f3f5; --muted: #9aa1ad; --line: #2a2e36; --accent: #5cc6c8; --field: #22262e; }
+    html[data-device="android"] { --accent: #1a73e8; }
+    html[data-device="android"][data-theme="dark"] { --accent: #8ab4f8; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; -webkit-font-smoothing: antialiased; }
+    html[data-device="android"] body { font-family: Roboto, "Noto Sans KR", "Segoe UI", sans-serif; }
+    .screen { min-height: 100%; padding: calc(var(--status-h, 0px) + 12px) 20px 40px; }
+    .appbar { display: flex; align-items: center; justify-content: space-between; height: 44px; font-weight: 600; font-size: 17px; }
+    .appbar .back { color: var(--accent); font-weight: 400; font-size: 15px; }
+    .avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8fd3d4); margin: 20px auto 10px; }
+    h1 { text-align: center; font-size: 20px; margin: 0 0 4px; }
+    p.sub { text-align: center; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+    .card { background: var(--card); border-radius: 14px; padding: 18px; border: 1px solid var(--line); }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; font-weight: 600; letter-spacing: .02em; }
+    input { width: 100%; font-size: 22px; letter-spacing: 8px; padding: 12px 14px; border: 0; border-radius: 10px; background: var(--field); color: var(--ink); }
+    input:focus { outline: 2px solid var(--accent); }
+    html[data-device="android"] input { border-radius: 4px; border-bottom: 2px solid var(--muted); }
+    html[data-device="android"] input:focus { outline: none; border-bottom-color: var(--accent); }
+    button.login { width: 100%; margin-top: 16px; padding: 14px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 600; }
+    html[data-device="android"] button.login { border-radius: 24px; text-transform: none; }
+    html[data-theme="dark"][data-device="android"] button.login { color: #0b1e1f; }
+    .status { margin-top: 10px; font-size: 12px; color: #c0392b; min-height: 16px; font-family: ui-monospace, Menlo, monospace; }
+    .res { margin-top: 12px; border-radius: 10px; padding: 10px 12px; font-size: 13px; background: var(--field); }
+    .res.err { background: rgba(192,57,43,.12); }
+    .res-title { font-weight: 700; margin-bottom: 4px; }
+    .res-row { display: grid; grid-template-columns: 62px 40px 1fr; gap: 6px; align-items: center; padding: 2px 0; }
+    .res-value { font-family: ui-monospace, Menlo, monospace; font-size: 15px; letter-spacing: 2px; background: none; }
+    .res-hidden, .res-note { color: var(--muted); font-size: 11px; }
+    .res-note { margin-top: 6px; }
+    .hint { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <div class="appbar"><span class="back">‹ 뒤로</span><span>간편 로그인</span><span style="width:44px"></span></div>
+    <div class="avatar"></div>
+    <h1>안녕하세요, 테일러님</h1>
+    <p class="sub">보안 키패드로 안전하게 입력하세요</p>
+    <form class="card" id="login" autocomplete="off">
+      <label for="pin">간편 비밀번호 6자리</label>
+      <input id="pin" type="password" placeholder="••••••" aria-label="간편 비밀번호">
+      <label for="password">로그인 비밀번호</label>
+      <input id="password" type="password" placeholder="••••••••" aria-label="로그인 비밀번호">
+      <button class="login" type="submit">로그인</button>
+      <div class="status" id="status" role="status"></div>
+      <div id="result"></div>
+    </form>
+    <p class="hint" id="hint"></p>
+  </div>
+  <script src="/dist/secure-keypad.iife.js"></script>
+  <script src="/demo.js"></script>
+  <script>
+    (async () => {
+      const qs = SkpDemo.qs;
+      const device = qs.get("device") || (/iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios" : "android");
+      const theme = qs.get("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.device = device;
+      document.documentElement.dataset.theme = theme;
+      // inside a device frame the host draws the status bar over us: leave room for it
+      const statusH = Number(qs.get("statusH") || 0);
+      document.documentElement.style.setProperty("--status-h", statusH + "px");
+      const status = document.getElementById("status");
+      const result = document.getElementById("result");
+      const demo = await SkpDemo.setup({
+        pinEl: document.getElementById("pin"),
+        passwordEl: document.getElementById("password"),
+        layout: () => qs.get("layout") || "shuffle",
+        style: device === "ios" ? "ios" : "material",
+        theme,
+        popups: qs.get("popups") === "0" ? false : true,      // simulations use a mouse: always show popups
+        safeAreaBottom: Number(qs.get("safeBottom") || 0),
+        doneLabel: device === "ios" ? "완료" : "완료",
+        onStatus: (m) => (status.textContent = m),
+      });
+      document.getElementById("hint").textContent = `배열 ${qs.get("layout") || "shuffle"} · ${device === "ios" ? "iOS" : "Material"} 스타일 · kid ${demo.kid}`;
+      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx };
+      document.getElementById("login").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        status.textContent = "";
+        try {
+          const json = await demo.login();
+          window.__skp.lastLogin = json;
+          SkpDemo.renderResult(result, json);
+          parent.postMessage({ type: "skp-login", json }, "*");
+        } catch (err) {
+          status.textContent = err.message;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

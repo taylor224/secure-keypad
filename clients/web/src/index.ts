@@ -45,8 +45,10 @@ export interface SecureKeypadConfig {
   theme?: "auto" | ThemeName;
   themeOverrides?: Partial<ThemeTokens>;
   haptics?: boolean;
-  /** Key popups on touch (iOS-style bubbles / Material previews). */
-  popups?: boolean;
+  /** Key popups: "auto" (touch pointers only, default), true (always, e.g. device simulations), false. */
+  popups?: boolean | "auto";
+  /** Extra bottom padding in CSS px under the keys (home indicator / gesture bar), added to the safe-area inset. */
+  safeAreaBottom?: number;
   /** Accessory bar with a Done button: "auto" shows it for number pads only. */
   accessory?: "auto" | "always" | "never";
   doneLabel?: string;
@@ -147,7 +149,8 @@ export function createSecureKeypad(config: SecureKeypadConfig): SecureKeypad {
     style,
     theme: theme(),
     haptics: config.haptics ?? true,
-    popups: config.popups ?? true,
+    popups: config.popups ?? "auto",
+    safeAreaBottom: config.safeAreaBottom ?? 0,
     accessory: config.accessory === "always" || (config.accessory !== "never" && config.type === "number"),
     doneLabel: config.doneLabel ?? "Done",
     desktop,

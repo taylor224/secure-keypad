@@ -8,6 +8,7 @@
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs",
+    "demo": "SKP_DEMO_ECHO=1 SKP_ALLOW_CLIENT_LAYOUT=1 node server.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {

@@ -3,91 +3,98 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>secure-keypad demo</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f2f3f7; color: #1b1f27; }
-    @media (prefers-color-scheme: dark) { body { background: #121419; color: #e7e9ef; } .card { background: #1a1d24; } input { background: #22262f; color: #e7e9ef; border-color: #3c4250; } }
-    main { max-width: 420px; margin: 0 auto; padding: 24px 16px 320px; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    p.sub { margin: 0 0 20px; color: #6f7683; font-size: 14px; }
-    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-    label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
-    input { width: 100%; box-sizing: border-box; font-size: 20px; letter-spacing: 6px; padding: 12px 14px; border: 1px solid #c3c7d1; border-radius: 8px; }
-    input:focus { outline: 2px solid #0b6b6e; border-color: transparent; }
-    button.primary { margin-top: 20px; width: 100%; padding: 14px; font-size: 16px; font-weight: 600; border: 0; border-radius: 8px; background: #0b6b6e; color: #fff; }
-    .status { margin-top: 14px; font-size: 14px; min-height: 20px; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; }
-    .row { display: flex; gap: 8px; align-items: center; font-size: 13px; color: #6f7683; margin-top: 6px; }
-    .row select { font-size: 13px; }
-  </style>
+  <title>secure-keypad playground</title>
+  <link rel="stylesheet" href="/demo.css">
 </head>
 <body>
-  <main>
-    <h1>secure-keypad</h1>
-    <p class="sub">서버가 만든 무작위 키패드 · 좌표만 암호화 전송 · 브라우저는 입력값을 모릅니다</p>
-    <form class="card" id="login" autocomplete="off">
-      <label for="pin">PIN (숫자 키패드)</label>
-      <input id="pin" type="password" placeholder="••••••" aria-label="PIN">
-      <label for="password">비밀번호 (QWERTY)</label>
-      <input id="password" type="password" placeholder="••••••••" aria-label="비밀번호">
-      <div class="row">
-        <span>배열:</span>
-        <select id="layout">
-          <option value="shuffle">shuffle (기본)</option>
-          <option value="full">full</option>
-          <option value="fixed">fixed (경고: 좌표로 추론 가능)</option>
-        </select>
-        <span id="kid"></span>
-      </div>
-      <button class="primary" type="submit">로그인</button>
-      <div class="status" id="status" role="status"></div>
-    </form>
+  <nav class="topnav">
+    <a class="brand" href="/">secure-keypad</a>
+    <a href="/" class="active">일반 웹</a>
+    <a href="/ios.html">iOS 시뮬레이션</a>
+    <a href="/android.html">Android 시뮬레이션</a>
+  </nav>
+  <main class="page">
+    <header class="hero">
+      <h1>일반 웹페이지에서 써보기</h1>
+      <p>서버가 세션마다 무작위 배열의 키패드를 만들고, 브라우저는 좌표만 암호화해 보냅니다. 입력창을 누르면 키패드가 열립니다. 데스크톱은 마우스로, 모바일 브라우저는 터치로 사용하세요.</p>
+    </header>
+    <div class="grid">
+      <form class="card" id="login" autocomplete="off">
+        <h2>로그인</h2>
+        <label for="pin">PIN (숫자 키패드)</label>
+        <input id="pin" type="password" placeholder="••••••" aria-label="PIN">
+        <label for="password">비밀번호 (QWERTY)</label>
+        <input id="password" type="password" placeholder="••••••••" aria-label="비밀번호">
+        <div class="row">
+          <label class="inline">배열
+            <select id="layout">
+              <option value="shuffle">shuffle (기본)</option>
+              <option value="full">full</option>
+              <option value="fixed">fixed (경고: 좌표로 추론 가능)</option>
+            </select>
+          </label>
+          <label class="inline">스타일
+            <select id="style">
+              <option value="auto">auto</option>
+              <option value="ios">iOS</option>
+              <option value="material">Material</option>
+            </select>
+          </label>
+          <span class="kid" id="kid"></span>
+        </div>
+        <button class="primary" type="submit">로그인</button>
+        <div class="status" id="status" role="status"></div>
+        <div id="result"></div>
+      </form>
+      <aside class="card explain">
+        <h2>무슨 일이 일어나나</h2>
+        <ol>
+          <li>브라우저가 임시 X25519 키를 만들고 <code>POST /keypad/session</code>에 보냅니다.</li>
+          <li>서버가 이 세션만의 배열을 만들고, 글자 <em>이미지</em>와 키 사각형만 암호화해 내려줍니다. 문자 코드는 없습니다.</li>
+          <li>키를 누르면 좌표만 기록됩니다. 로그인 버튼은 좌표 묶음을 암호화한 페이로드를 <code>POST /login</code>으로 보냅니다.</li>
+          <li>서버 SDK가 좌표를 글자로 복원하고 세션을 파기합니다. 같은 페이로드를 다시 보내면 <code>410</code>입니다.</li>
+        </ol>
+        <p class="muted">배열을 <b>fixed</b>로 바꾸면 키보드는 표준 QWERTY가 되지만 좌표만으로 글자를 알 수 있어 서버가 경고를 남깁니다.</p>
+      </aside>
+    </div>
   </main>
   <script src="/dist/secure-keypad.iife.js"></script>
+  <script src="/demo.js"></script>
   <script>
     (async () => {
-      const params = new URLSearchParams(location.search);
       const layoutSel = document.getElementById("layout");
-      if (params.get("layout")) layoutSel.value = params.get("layout");
+      const styleSel = document.getElementById("style");
+      if (SkpDemo.qs.get("layout")) layoutSel.value = SkpDemo.qs.get("layout");
+      if (SkpDemo.qs.get("style")) styleSel.value = SkpDemo.qs.get("style");
       const status = document.getElementById("status");
-      const { publicKey, kid } = await (await fetch("/keypad/public-key")).json();
-      document.getElementById("kid").textContent = "kid " + kid;
-      const ctx = "demo-" + Math.random().toString(36).slice(2, 10);
-      const common = {
-        sessionUrl: "/keypad/session",
-        relayoutUrl: "/keypad/relayout",
-        serverPublicKey: publicKey,
-        headers: () => ({ "x-login-ctx": ctx, "x-keypad-layout": layoutSel.value }),
-        style: params.get("style") || "auto",
-      };
-      const pin = SecureKeypad.createSecureKeypad({ ...common, type: "number", maxLen: 6 });
-      const password = SecureKeypad.createSecureKeypad({ ...common, type: "qwerty", maxLen: 32 });
-      pin.attach(document.getElementById("pin"));
-      password.attach(document.getElementById("password"));
-      // debugging aid for the E2E suite: layouts hold rects and roles only
-      window.__skp = { pin, password, layouts: {}, ctx };
-      pin.on("ready", ({ layout }) => (window.__skp.layouts.pin = layout));
-      password.on("ready", ({ layout }) => (window.__skp.layouts.password = layout));
-      for (const [name, kp] of [["pin", pin], ["password", password]]) {
-        kp.on("error", ({ error }) => (status.textContent = name + ": " + error.message));
-        kp.on("expire", () => (status.textContent = name + ": 세션 만료 — 다시 입력하세요"));
-      }
-      layoutSel.addEventListener("change", () => { pin.reset(); password.reset(); });
+      const result = document.getElementById("result");
+      let demo = await SkpDemo.setup({
+        pinEl: document.getElementById("pin"),
+        passwordEl: document.getElementById("password"),
+        layout: () => layoutSel.value,
+        style: styleSel.value,
+        onStatus: (m) => (status.textContent = m),
+      });
+      document.getElementById("kid").textContent = "kid " + demo.kid;
+      // E2E hooks: rects and roles only, never characters
+      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx };
+      layoutSel.addEventListener("change", () => demo.reset());
+      styleSel.addEventListener("change", () => {
+        const u = new URL(location.href);
+        u.searchParams.set("style", styleSel.value);
+        u.searchParams.set("layout", layoutSel.value);
+        location.href = u;
+      });
       document.getElementById("login").addEventListener("submit", async (e) => {
         e.preventDefault();
-        const body = {};
+        status.textContent = "";
         try {
-          if (pin.length) body.pin_enc = JSON.parse(pin.submit());
-          if (password.length) body.password_enc = JSON.parse(password.submit());
+          const json = await demo.login();
+          window.__skp.lastLogin = json;
+          SkpDemo.renderResult(result, json);
         } catch (err) {
           status.textContent = err.message;
-          return;
         }
-        const res = await fetch("/login", { method: "POST", headers: { "content-type": "application/json", "x-login-ctx": ctx }, body: JSON.stringify(body) });
-        const json = await res.json();
-        status.textContent = JSON.stringify(json);
-        window.__skp.lastLogin = json;
-        pin.reset(); password.reset();
       });
     })();
   </script>

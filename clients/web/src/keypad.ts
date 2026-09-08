@@ -10,7 +10,10 @@ export interface KeypadUIOptions {
   style: Style;
   theme: ThemeTokens;
   haptics: boolean;
-  popups: boolean;
+  /** true: always show key popups; "auto": touch pointers only; false: never */
+  popups: boolean | "auto";
+  /** extra bottom padding in CSS px (home indicator / gesture bar) added to the safe-area inset */
+  safeAreaBottom: number;
   accessory: boolean;
   doneLabel: string;
   desktop: boolean;
@@ -119,6 +122,7 @@ export class KeypadUI {
     this.ctx = this.canvas.getContext("2d")!;
     this.popupCtx = this.popup.getContext("2d")!;
     this.applyTheme(opts.theme);
+    if (opts.safeAreaBottom > 0) this.sheet.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${opts.safeAreaBottom}px)`;
     mount.appendChild(this.host);
     this.canvas.addEventListener("pointerdown", this.onDown);
     this.canvas.addEventListener("pointermove", this.onMove);
@@ -218,7 +222,7 @@ export class KeypadUI {
   private draw(): void {
     const layer = this.currentLayer();
     if (!this.layout || !layer) return;
-    const state: DrawState = { pressed: this.pressed, shift: this.shift, popupCovers: this.popup.style.display === "block" };
+    const state: DrawState = { pressed: this.pressed, shift: this.shift, popupCovers: this.popup.style.display === "block", doneLabel: this.opts.doneLabel };
     drawKeypad({ ctx: this.ctx, layout: this.layout, layer, sprites: this.sprites, theme: this.opts.theme, dpr: this.dpr, state });
   }
 
@@ -231,9 +235,13 @@ export class KeypadUI {
     return { x: Math.max(0, Math.min(w - 1, x)), y: Math.max(0, Math.min(h - 1, y)) };
   }
 
+  private wantsPopup(e: PointerEvent): boolean {
+    return this.opts.popups === true || (this.opts.popups === "auto" && e.pointerType !== "mouse");
+  }
+
   private showPopup(layer: Layer, index: number): void {
     const key = layer.keys[index];
-    if (!this.layout || !this.opts.popups || key.role !== "char") {
+    if (!this.layout || this.opts.popups === false || key.role !== "char") {
       this.hidePopup();
       return;
     }
@@ -278,7 +286,7 @@ export class KeypadUI {
     }
     this.pressed = i;
     this.haptic(e);
-    if (e.pointerType !== "mouse") this.showPopup(layer, i);
+    if (this.wantsPopup(e)) this.showPopup(layer, i);
     if (key.role === "backspace") {
       this.opts.onBackspace();
       this.repeatTimer = setTimeout(() => {
@@ -299,7 +307,7 @@ export class KeypadUI {
       // sliding off a backspace key stops the auto repeat; sliding between character keys moves the popup
       if (from?.role === "backspace") this.stopRepeat();
       this.pressed = layer.keys[i]?.role === "blank" ? -1 : i;
-      if (e.pointerType !== "mouse" && this.pressed >= 0) this.showPopup(layer, this.pressed);
+      if (this.wantsPopup(e) && this.pressed >= 0) this.showPopup(layer, this.pressed);
       else this.hidePopup();
       this.draw();
     }

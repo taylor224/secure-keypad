@@ -1,0 +1,42 @@
+/* Device frames for the simulation pages. Screens are real iframes; the chrome is CSS. */
+.stage { display: grid; grid-template-columns: minmax(280px, 380px) auto; gap: 32px; justify-content: center; align-items: start; padding: 32px 20px 60px; }
+@media (max-width: 860px) { .stage { grid-template-columns: 1fr; justify-items: center; } }
+.controls label.inline { margin-right: 14px; }
+.controls .small { margin-top: 16px; font-size: 12px; }
+button.ghost { margin-left: 4px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 13px; cursor: pointer; }
+
+.device { position: relative; }
+.bezel { position: relative; background: #0b0b0c; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.35), inset 0 0 0 2px #2a2a2e; }
+.bezel iframe { display: block; border: 0; background: #fff; }
+.statusbar { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; pointer-events: none; font-weight: 600; color: #000; }
+body[data-theme="dark"] .statusbar { color: #fff; }
+.icons { display: inline-flex; gap: 6px; align-items: center; }
+.battery { display: inline-block; width: 25px; height: 12px; border: 1.5px solid currentColor; border-radius: 4px; position: relative; opacity: .95; }
+.battery span { position: absolute; inset: 2px; right: 6px; background: currentColor; border-radius: 1.5px; }
+.battery::after { content: ""; position: absolute; right: -4px; top: 3px; width: 2px; height: 5px; background: currentColor; border-radius: 0 2px 2px 0; }
+.battery.android { width: 11px; height: 17px; border-radius: 2px; }
+.battery.android span { inset: 6px 2px 2px; right: 2px; }
+.battery.android::after { right: 3px; top: -4px; width: 4px; height: 2px; }
+.btn.side { position: absolute; background: #2a2a2e; border-radius: 2px; }
+
+/* iPhone 14 Pro proportions: 390 × 844 pt screen */
+.iphone .bezel { width: 414px; height: 868px; border-radius: 56px; padding: 12px; }
+.iphone .bezel iframe { width: 390px; height: 844px; border-radius: 46px; }
+.iphone .island { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); width: 122px; height: 36px; background: #000; border-radius: 20px; z-index: 3; }
+.iphone .statusbar { top: 12px; height: 54px; padding: 0 40px 0 44px; font-size: 16px; z-index: 2; }
+.iphone .statusbar .clock { font-weight: 600; letter-spacing: -.2px; }
+.iphone .home-indicator { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 140px; height: 5px; border-radius: 3px; background: #000; opacity: .9; z-index: 3; pointer-events: none; }
+body[data-theme="dark"] .iphone .home-indicator { background: #fff; }
+.iphone .vol-up { left: -4px; top: 200px; width: 4px; height: 36px; }
+.iphone .vol-down { left: -4px; top: 250px; width: 4px; height: 36px; }
+.iphone .power { right: -4px; top: 230px; width: 4px; height: 64px; }
+
+/* Pixel 7 proportions: 412 × 915 dp screen */
+.pixel .bezel { width: 432px; height: 935px; border-radius: 32px; padding: 10px; }
+.pixel .bezel iframe { width: 412px; height: 915px; border-radius: 24px; }
+.pixel .camera { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #000; box-shadow: inset 0 0 0 3px #1c1c1e; z-index: 3; }
+.pixel .statusbar { top: 10px; height: 32px; padding: 0 22px; font-size: 14px; font-family: Roboto, "Segoe UI", sans-serif; z-index: 2; }
+.pixel .gesture-bar { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 110px; height: 4px; border-radius: 2px; background: #000; opacity: .8; z-index: 3; pointer-events: none; }
+body[data-theme="dark"] .pixel .gesture-bar { background: #fff; }
+.pixel .power { right: -4px; top: 190px; width: 4px; height: 48px; }
+.pixel .vol { right: -4px; top: 260px; width: 4px; height: 90px; }

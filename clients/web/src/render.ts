@@ -73,6 +73,8 @@ export interface DrawState {
   shift: "off" | "once" | "caps";
   /** hide the pressed char key body while a popup covers it (iOS) */
   popupCovers: boolean;
+  /** label of the Done key */
+  doneLabel?: string;
 }
 
 function isSpecial(role: Role): boolean {
@@ -87,7 +89,8 @@ const LABELS: Partial<Record<Role, string>> = {
   mode_sym2: "#+=",
 };
 
-function labelFor(role: Role, style: "ios" | "material"): string {
+function labelFor(role: Role, style: "ios" | "material", doneLabel?: string): string {
+  if (role === "done" && doneLabel) return doneLabel;
   if (style === "material") {
     if (role === "mode_sym1") return "?123";
     if (role === "mode_sym2") return "=\\<";
@@ -198,7 +201,7 @@ export function drawKeypad(p: DrawParams): void {
         drawBackspace(ctx, cx, cy, iconPx, textColor);
         break;
       default: {
-        const label = labelFor(key.role, layout.style);
+        const label = labelFor(key.role, layout.style, state.doneLabel);
         if (label) {
           ctx.fillStyle = key.role === "done" && layout.style === "material" ? theme.keySpecialText : textColor;
           ctx.font = `${key.role === "space" ? 400 : 500} ${labelPx}px ${theme.font}`;

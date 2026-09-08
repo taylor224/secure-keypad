@@ -5,7 +5,7 @@
 //
 // Dev/test switches (never enable in production):
 //   SKP_ALLOW_CLIENT_LAYOUT=1   honour the X-Keypad-Layout header (demo picker)
-//   SKP_E2E_ECHO=1              /login echoes the decrypted value so the E2E suite can assert it
+//   SKP_DEMO_ECHO=1             /login echoes the decrypted value (playground result panel, E2E asserts)
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,7 +19,7 @@ if (!masterKeyPath && !process.env.SKP_MASTER_KEY) console.warn("[example] no ma
 
 const skp = new SecureKeypadServer({ masterKeyPath, masterKey });
 const allowClientLayout = process.env.SKP_ALLOW_CLIENT_LAYOUT === "1";
-const echo = process.env.SKP_E2E_ECHO === "1";
+const echo = process.env.SKP_DEMO_ECHO === "1";
 const app = express();
 app.use(express.json({ limit: "64kb" }));
 
@@ -65,10 +65,11 @@ app.post("/login", async (req, res) => {
       const secret = await skp.decrypt(payload, { ctx: ctxOf(req) });
       secrets.push(secret);
       out[`${field}Length`] = secret.length;
-      if (echo) out[field] = secret.toString(); // test-only
+      if (echo) out[field] = secret.toString(); // demo/test only: a real service never returns the value
     }
     // A real app would verify the credential here (constant-time compare / password hash).
     out.ok = secrets.length > 0 && secrets.every((s) => s.length > 0);
+    if (echo) out.demoEcho = true;
     res.json(out);
   } catch (e) {
     fail(res, e);

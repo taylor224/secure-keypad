@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko" data-device="android">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>secure-keypad · Android 시뮬레이션</title>
+  <link rel="stylesheet" href="/demo.css">
+  <link rel="stylesheet" href="/frame.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="/">secure-keypad</a>
+    <a href="/">일반 웹</a>
+    <a href="/ios.html">iOS 시뮬레이션</a>
+    <a href="/android.html" class="active">Android 시뮬레이션</a>
+  </nav>
+  <main class="stage">
+    <section class="controls card">
+      <h2>Pixel 프레임</h2>
+      <p class="muted">412 × 915dp 화면 안에서 Material 스타일 키패드가 동작합니다. 키를 누르면 Gboard처럼 미리보기가 뜹니다. 실제 Android 기기에서는 <a href="/app.html?device=android">app.html</a>을 직접 열어보세요.</p>
+      <label class="inline">배열
+        <select id="layout">
+          <option value="shuffle">shuffle (기본)</option>
+          <option value="full">full</option>
+          <option value="fixed">fixed (경고)</option>
+        </select>
+      </label>
+      <label class="inline">테마
+        <select id="theme">
+          <option value="light">라이트</option>
+          <option value="dark">다크</option>
+        </select>
+      </label>
+      <button class="ghost" id="reload" type="button">새 세션</button>
+      <div id="result"></div>
+      <p class="muted small">시뮬레이션은 데스크톱 브라우저의 캔버스로 그립니다. 실제 Android SDK(<code>clients/android</code>)는 네이티브 <code>View</code>로 그리고 <code>FLAG_SECURE</code>를 겁니다.</p>
+    </section>
+    <div class="device pixel">
+      <div class="bezel">
+        <div class="camera"></div>
+        <div class="statusbar">
+          <span class="clock">9:41</span>
+          <span class="icons"><svg width="14" height="12" viewBox="0 0 16 12"><path d="M8 11.5 5.6 9.1a3.4 3.4 0 0 1 4.8 0zM3 6.4l-1.8-1.8a9.6 9.6 0 0 1 13.6 0L13 6.4a7 7 0 0 0-10 0zm2.6 2.6L3.8 7.2a5.8 5.8 0 0 1 8.4 0L10.4 9a3.4 3.4 0 0 0-4.8 0z" fill="currentColor"/></svg><svg width="12" height="12" viewBox="0 0 12 12"><path d="M0 12 12 0v12z" fill="currentColor"/></svg><span class="battery android"><span></span></span></span>
+        </div>
+        <iframe id="screen" title="Android app screen"></iframe>
+        <div class="gesture-bar"></div>
+      </div>
+      <div class="btn side power"></div><div class="btn side vol"></div>
+    </div>
+  </main>
+  <script src="/demo.js"></script>
+  <script src="/frame.js"></script>
+</body>
+</html>
