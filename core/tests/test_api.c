@@ -188,6 +188,9 @@ static void test_roundtrip(void) {
         sodium_memzero(l2, sizeof *l2);
         free(l2);
     }
+    /* the error-path calls below reset these output buffers without freeing them */
+    skp_buf_free(&rresp);
+    skp_buf_free(&sealed2);
     /* expired */
     skp_test_hooks late = {NULL, NULL, seed, NULL, skp_now() + 1000, 0};
     skp_test_set_hooks(&late);

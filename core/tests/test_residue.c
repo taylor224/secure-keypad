@@ -20,6 +20,9 @@ typedef struct {
 static uint8_t g_mask[64];
 static pattern g_pat[MAX_PATTERNS];
 static int g_npat = 0;
+/* where the chunk being scanned lives (diagnostics for hits): mapping description and its start address */
+static const char *g_where = "?";
+static uintptr_t g_where_base = 0;
 
 static void add_pattern(const char *name, const uint8_t *data, size_t len) {
     pattern *p = &g_pat[g_npat++];
@@ -43,6 +46,7 @@ static void scan_chunk(const uint8_t *mem, size_t len) {
             if (j == p->len) {
                 /* ignore our own masked copies (they never match unmasked) and the mask itself */
                 p->hits++;
+                fprintf(stderr, "  residue: %s at %s+0x%" PRIxPTR "\n", p->name, g_where, (uintptr_t)(g_where_base + i));
                 i += p->len - 1;
             }
         }
@@ -67,12 +71,17 @@ static void scan_process(void) {
         }
         if ((info.protection & VM_PROT_READ) && !(info.protection & VM_PROT_EXECUTE) && info.share_mode != SM_EMPTY &&
             size <= (512ULL << 20)) {
+            char where[64];
+            snprintf(where, sizeof where, "region 0x%" PRIxPTR, (uintptr_t)addr);
+            g_where = where;
             for (mach_vm_size_t off = 0; off < size; off += (1 << 20)) {
                 mach_vm_size_t want = size - off < (1 << 20) ? size - off : (1 << 20);
                 mach_vm_size_t got = 0;
+                g_where_base = (uintptr_t)off;
                 if (mach_vm_read_overwrite(mach_task_self(), addr + off, want, (mach_vm_address_t)buf, &got) == KERN_SUCCESS)
                     scan_chunk(buf, (size_t)got);
             }
+            g_where = "?";
         }
         addr += size;
     }
@@ -98,12 +107,16 @@ static void scan_process(void) {
         /* sanitizer shadow / reserved ranges span terabytes of untouched address space: not heap */
         if (hi - lo > (512UL << 20))
             continue;
+        line[strcspn(line, "\n")] = 0;
+        g_where = line;
         for (unsigned long off = lo; off < hi; off += (1 << 20)) {
             size_t want = hi - off < (1 << 20) ? hi - off : (1 << 20);
             ssize_t got = pread(mem, buf, want, (off_t)off);
+            g_where_base = (uintptr_t)(off - lo);
             if (got > 0)
                 scan_chunk(buf, (size_t)got);
         }
+        g_where = "?";
     }
     free(buf);
     fclose(maps);
