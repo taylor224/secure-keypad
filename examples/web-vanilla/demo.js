@@ -2,16 +2,43 @@
 // Everything here is demo plumbing; the only SDK calls are createSecureKeypad / attach / submit / reset.
 (function () {
   const qs = new URLSearchParams(location.search);
+  const base = window.SKP_API_BASE || "";
+  const api = (path) => base + path;
+
+  function showBanner(message) {
+    let el = document.getElementById("backend-banner");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "backend-banner";
+      el.setAttribute("role", "alert");
+      el.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483001;background:#fff3d1;color:#5a3d00;padding:12px 16px;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;border-bottom:1px solid #e6c860;white-space:pre-wrap";
+      document.body.prepend(el);
+    }
+    el.textContent = message;
+  }
 
   async function setup(o) {
-    const { publicKey, kid } = await (await fetch("/keypad/public-key")).json();
+    let publicKey, kid;
+    try {
+      const res = await fetch(api("/keypad/public-key"));
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      ({ publicKey, kid } = await res.json());
+    } catch (e) {
+      showBanner(
+        "백엔드에 연결할 수 없습니다 (" + (base || location.origin) + ").\n" +
+          "이 페이지는 서버 SDK가 도는 백엔드가 필요합니다. 로컬에서 `cd examples/server-node && npm run demo` 를 실행한 뒤 " +
+          "이 주소 뒤에 ?api=http://localhost:3789 를 붙여 여세요. 호스팅한 백엔드가 있으면 그 주소를 ?api= 로 지정하면 기억됩니다.",
+      );
+      throw e;
+    }
     const ctx = "demo-" + Math.random().toString(36).slice(2, 10);
     const getLayout = () => (typeof o.layout === "function" ? o.layout() : o.layout || qs.get("layout") || "shuffle");
     const common = {
-      sessionUrl: "/keypad/session",
-      relayoutUrl: "/keypad/relayout",
+      sessionUrl: api("/keypad/session"),
+      relayoutUrl: api("/keypad/relayout"),
       serverPublicKey: publicKey,
       headers: () => ({ "x-login-ctx": ctx, "x-keypad-layout": getLayout() }),
+      credentials: "omit",
       style: o.style || qs.get("style") || "auto",
       theme: o.theme || qs.get("theme") || "auto",
       popups: o.popups ?? "auto",
@@ -35,7 +62,7 @@
       const body = {};
       if (pin.length) body.pin_enc = JSON.parse(pin.submit());
       if (password.length) body.password_enc = JSON.parse(password.submit());
-      const res = await fetch("/login", {
+      const res = await fetch(api("/login"), {
         method: "POST",
         headers: { "content-type": "application/json", "x-login-ctx": ctx },
         body: JSON.stringify(body),
@@ -56,7 +83,7 @@
       return;
     }
     if (json.error) {
-      el.innerHTML = `<div class="res err">서버 거부: <code>${json.error}</code></div>`;
+      el.innerHTML = `<div class="res err">서버 거부: <code>${escapeHtml(json.error)}</code></div>`;
       return;
     }
     const rows = [];
@@ -85,5 +112,5 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
 
-  window.SkpDemo = { setup, renderResult, qs };
+  window.SkpDemo = { setup, renderResult, qs, api };
 })();

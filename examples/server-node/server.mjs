@@ -4,6 +4,7 @@
 //   without either, a throw-away key is generated for development.
 //
 // Dev/test switches (never enable in production):
+//   SKP_CORS_ORIGIN=https://x   allow a statically hosted playground (GitHub Pages) to call this server
 //   SKP_ALLOW_CLIENT_LAYOUT=1   honour the X-Keypad-Layout header (demo picker)
 //   SKP_DEMO_ECHO=1             /login echoes the decrypted value (playground result panel, E2E asserts)
 import express from "express";
@@ -22,6 +23,23 @@ const allowClientLayout = process.env.SKP_ALLOW_CLIENT_LAYOUT === "1";
 const echo = process.env.SKP_DEMO_ECHO === "1";
 const app = express();
 app.use(express.json({ limit: "64kb" }));
+
+// CORS for a statically hosted playground (GitHub Pages). SKP_CORS_ORIGIN: comma-separated origins or "*".
+const corsOrigins = (process.env.SKP_CORS_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean);
+if (corsOrigins.length) {
+  app.use((req, res, next) => {
+    const origin = req.get("origin");
+    if (origin && (corsOrigins.includes("*") || corsOrigins.includes(origin))) {
+      res.set("access-control-allow-origin", origin);
+      res.set("vary", "origin");
+      res.set("access-control-allow-headers", "content-type, x-login-ctx, x-keypad-layout");
+      res.set("access-control-allow-methods", "GET, POST, OPTIONS");
+      res.set("access-control-max-age", "600");
+    }
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    next();
+  });
+}
 
 // The binding context ties a session to this login attempt: the same value must be presented at decrypt.
 const ctxOf = (req) => String(req.get("x-login-ctx") || "demo");

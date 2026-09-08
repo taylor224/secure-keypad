@@ -11,7 +11,8 @@
   if (qs.get("theme")) theme.value = qs.get("theme");
 
   function load() {
-    const u = new URL("/app.html", location.origin);
+    const u = new URL("app.html", location.href);
+    if (window.SKP_API_BASE) u.searchParams.set("api", window.SKP_API_BASE);
     u.searchParams.set("device", device);
     u.searchParams.set("theme", theme.value);
     u.searchParams.set("layout", layout.value);

@@ -6,12 +6,13 @@ cd examples/server-node
 npm run demo                          # http://localhost:3789
 ```
 
-`npm run demo` starts the server with two switches that exist only for the playground:
+`npm run demo` starts the server with switches that exist only for the playground:
 
 | Variable | Effect |
 |---|---|
 | `SKP_ALLOW_CLIENT_LAYOUT=1` | honours the `X-Keypad-Layout` header so the pages can switch `shuffle / full / fixed` |
 | `SKP_DEMO_ECHO=1` | `/login` returns the decrypted values so the result panel can show them. **Never** in production |
+| `SKP_CORS_ORIGIN=https://<user>.github.io` | lets the statically hosted playground (GitHub Pages) call this server |
 
 `npm start` runs without them. Configure the key with `SKP_MASTER_KEY_PATH` or `SKP_MASTER_KEY`; without
 either a throw-away key is generated for the process.
@@ -32,3 +33,17 @@ Routes: `GET /keypad/public-key`, `POST /keypad/session`, `POST /keypad/relayout
 ```
 npm run e2e        # Playwright: iPhone WebKit, Pixel Chromium, desktop Chromium
 ```
+
+## Hosting the playground on GitHub Pages
+
+GitHub Pages only serves static files, so the pages are published by `.github/workflows/pages.yml` and
+need a backend somewhere else (any host that runs Node with a C toolchain, or this image):
+
+```
+docker build -f examples/server-node/Dockerfile -t secure-keypad-example .
+docker run -p 3789:3789 -e SKP_MASTER_KEY=$(core/build/skp-keygen) -e SKP_DEMO_ECHO=1 \
+  -e SKP_ALLOW_CLIENT_LAYOUT=1 -e SKP_CORS_ORIGIN=https://<user>.github.io secure-keypad-example
+```
+
+Then either set the repository variable `SKP_API_BASE` to the backend URL (the workflow bakes it into
+`config.js`) or open the site with `?api=https://your-backend` once (remembered in localStorage).

@@ -1,0 +1,60 @@
+name: pages
+
+# Publishes the web playground (examples/web-vanilla + the built web client) to GitHub Pages.
+# The pages are static; they talk to a backend running the server SDK. Set the repository variable
+# SKP_API_BASE (Settings → Secrets and variables → Actions → Variables) to that backend's URL, or open
+# the site with ?api=https://your-backend.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/web-vanilla/**"
+      - "clients/web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install JS workspaces (no native build needed for the web client)
+        run: npm ci --ignore-scripts
+      - name: Build the web client
+        run: npm run build -w @secure-keypad/web
+      - name: Assemble the site
+        env:
+          SKP_API_BASE: ${{ vars.SKP_API_BASE }}
+        run: |
+          mkdir -p site/dist
+          cp examples/web-vanilla/*.html examples/web-vanilla/*.css examples/web-vanilla/*.js site/
+          cp clients/web/dist/secure-keypad.iife.js clients/web/dist/secure-keypad.iife.js.map site/dist/
+          { echo "window.SKP_DEFAULT_API = \"${SKP_API_BASE}\";"; cat examples/web-vanilla/config.js; } > site/config.js
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

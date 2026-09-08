@@ -4,7 +4,8 @@ Open-source secure keypad: the server renders per-session shuffled keypads, the 
 keyboard and sends back only encrypted tap coordinates, and the server SDK turns them into the typed value.
 The client never knows what was typed; nothing secret survives the session.
 
-Design plan: [docs/PLAN.md](docs/PLAN.md) (Korean). Specification: [spec/PROTOCOL.md](spec/PROTOCOL.md),
+Playground: <https://taylor224.github.io/secure-keypad/> (static pages; point them at a running example server with
+`?api=…`, see [examples/server-node](examples/server-node/README.md)). Design plan: [docs/PLAN.md](docs/PLAN.md) (Korean). Specification: [spec/PROTOCOL.md](spec/PROTOCOL.md),
 [spec/LAYOUT.md](spec/LAYOUT.md), [spec/THREAT-MODEL.md](spec/THREAT-MODEL.md).
 
 | Component | Path | Status |

@@ -43,7 +43,7 @@
   <div class="screen">
     <div class="appbar"><span class="back">‹ 뒤로</span><span>간편 로그인</span><span style="width:44px"></span></div>
     <div class="avatar"></div>
-    <h1>안녕하세요, 테일러님</h1>
+    <h1>안녕하세요, 회원님</h1>
     <p class="sub">보안 키패드로 안전하게 입력하세요</p>
     <form class="card" id="login" autocomplete="off">
       <label for="pin">간편 비밀번호 6자리</label>
@@ -56,8 +56,9 @@
     </form>
     <p class="hint" id="hint"></p>
   </div>
-  <script src="/dist/secure-keypad.iife.js"></script>
-  <script src="/demo.js"></script>
+  <script src="dist/secure-keypad.iife.js"></script>
+  <script src="config.js"></script>
+  <script src="demo.js"></script>
   <script>
     (async () => {
       const qs = SkpDemo.qs;

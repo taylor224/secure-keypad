@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>secure-keypad playground</title>
-  <link rel="stylesheet" href="/demo.css">
+  <link rel="stylesheet" href="demo.css">
 </head>
 <body>
   <nav class="topnav">
-    <a class="brand" href="/">secure-keypad</a>
-    <a href="/" class="active">일반 웹</a>
-    <a href="/ios.html">iOS 시뮬레이션</a>
-    <a href="/android.html">Android 시뮬레이션</a>
+    <a class="brand" href="./">secure-keypad</a>
+    <a href="./" class="active">일반 웹</a>
+    <a href="ios.html">iOS 시뮬레이션</a>
+    <a href="android.html">Android 시뮬레이션</a>
   </nav>
   <main class="page">
     <header class="hero">
@@ -58,8 +58,9 @@
       </aside>
     </div>
   </main>
-  <script src="/dist/secure-keypad.iife.js"></script>
-  <script src="/demo.js"></script>
+  <script src="dist/secure-keypad.iife.js"></script>
+  <script src="config.js"></script>
+  <script src="demo.js"></script>
   <script>
     (async () => {
       const layoutSel = document.getElementById("layout");
