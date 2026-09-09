@@ -4,39 +4,43 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>secure-keypad · iOS 시뮬레이션</title>
-  <link rel="stylesheet" href="demo.css">
+  <link rel="stylesheet" href="bank.css">
   <link rel="stylesheet" href="frame.css">
 </head>
 <body>
+  <div class="demostrip">
+    <span><b>secure-keypad</b> 데모 — 차돌이뱅크는 실제 은행이 아닙니다.</span>
+    <a href="https://github.com/taylor224/secure-keypad" target="_blank" rel="noopener">프로젝트 저장소</a>
+  </div>
   <nav class="topnav" data-page="ios"></nav>
   <main class="stage">
     <section class="controls card">
       <h2>iPhone 프레임</h2>
-      <p class="muted">390 × 844pt 화면 안에서 iOS 스타일 키패드가 동작합니다. 키를 누르고 있으면 iOS처럼 팝업이 뜹니다. 지구본 키가 한국어 ↔ 영어를 바꿉니다. 실제 iPhone에서는 <a href="app.html?device=ios">실기기 화면</a>을 직접 열어보고, 네이티브 앱은 <a href="native.html#ios">SDK 예제</a>를 보세요.</p>
-      <label class="inline">배열
-        <select id="layout">
-          <option value="shuffle">shuffle (기본)</option>
-          <option value="full">full</option>
-          <option value="fixed">fixed (경고)</option>
-        </select>
-      </label>
-      <label class="inline">테마
-        <select id="theme">
-          <option value="light">라이트</option>
-          <option value="dark">다크</option>
-        </select>
-      </label>
-      <label class="inline">언어
-        <select id="langs">
-          <option value="en,ko">영어 + 한국어</option>
-          <option value="ko,en">한국어 + 영어</option>
-          <option value="en">영어만</option>
-          <option value="ko">한국어만</option>
-        </select>
-      </label>
-      <button class="ghost" id="reload" type="button">새 세션</button>
+      <p class="muted">390 × 844pt 화면에서 차돌이뱅크 앱과 iOS 스타일 보안 키패드가 동작합니다. 키를 누르고 있으면 iOS처럼 팝업이 뜨고, 지구본 키가 한국어 ↔ 영어를 바꿉니다. 실제 기기에서는 <a href="app.html?device=ios">실기기 화면</a>을 직접 열어보고, 네이티브 앱은 <a href="native.html#ios">SDK 예제</a>를 보세요.</p>
+      <div class="setgrid">
+        <label>키 배열
+          <select id="layout">
+            <option value="shuffle">shuffle (기본)</option>
+            <option value="full">full (전체 섞기)</option>
+            <option value="fixed">fixed (표준 배열 · 경고)</option>
+          </select>
+        </label>
+        <label>테마
+          <select id="theme"><option value="light">라이트</option><option value="dark">다크</option></select>
+        </label>
+        <label>키보드 언어
+          <select id="langs">
+            <option value="en,ko">영어 + 한국어</option>
+            <option value="ko,en">한국어 + 영어</option>
+            <option value="en">영어만</option>
+            <option value="ko">한국어만</option>
+          </select>
+        </label>
+      </div>
+      <p style="margin:12px 0 0"><button class="ghost" id="reload" type="button">새 세션</button></p>
       <div id="result"></div>
       <p id="banner-note" class="note-box" role="status"></p>
+      <p class="muted small phone-hint">폰으로 보고 있다면 이 프레임 대신 <a href="app.html?device=ios">실기기 화면</a>을 여세요. 전체 화면으로 동작합니다.</p>
       <p class="muted small">시뮬레이션은 데스크톱 브라우저의 캔버스로 그립니다. 실제 iOS SDK(<code>clients/ios</code>)는 <code>UIInputView</code>로 시스템 키보드 자리에 뜹니다.</p>
     </section>
     <div class="device iphone">

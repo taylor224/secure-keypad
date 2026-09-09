@@ -19,12 +19,16 @@ either a throw-away key is generated for the process.
 
 ## Pages (`examples/web-vanilla`)
 
+The pages are a demo bank, **차돌이뱅크 / Chadole Bank** (not a real bank; every page says so), showing the two
+places a Korean bank asks for a secret: a **withdrawal password** on the number pad and a **certificate
+password** on the full keyboard.
+
 | Page | What it shows |
 |---|---|
-| `/` | A normal web login page; mouse on desktop, touch on phones. Layout, style and languages selectable; changes rebuild the keypads in place. |
-| `/ios.html` | iPhone frame (390 × 844 pt) running the app screen with the iOS-style keypad, popups, dynamic island, home indicator. |
+| `/` | Web banking: a transfer form with both secure fields. Keypad layout, style and languages can be changed in the 데모 설정 panel; the keypads are rebuilt in place. |
+| `/ios.html` | iPhone frame (390 × 844 pt) running the bank app with the iOS-style keypad, popups, dynamic island, home indicator. |
 | `/android.html` | Pixel frame (412 × 915 dp) with the Material-style keypad, camera hole, gesture bar. |
-| `/app.html?device=ios\|android` | The app screen itself; open it directly on a real phone. |
+| `/app.html?device=ios\|android` | The bank app screen itself; open it directly on a real phone. |
 | `/native.html` | How to run the native iOS (Swift Package) and Android (AAR) SDK examples, with language configuration. |
 
 Routes: `GET /keypad/public-key`, `POST /keypad/session`, `POST /keypad/relayout`, `POST /login`.

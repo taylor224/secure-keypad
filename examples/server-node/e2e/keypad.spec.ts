@@ -80,8 +80,8 @@ test.describe("secure-keypad web demo", () => {
     await expect(pin).toHaveValue("•••");
     await tapDevicePoint(page, box, layout, ...centre(chars[5]));
     await expect(pin).toHaveValue("••••");
-    await page.getByRole("button", { name: "Done" }).click();
-    await page.getByRole("button", { name: "로그인" }).click();
+    await page.getByRole("button", { name: "확인" }).click();
+    await page.getByRole("button", { name: "이체하기" }).click();
     await page.waitForFunction(() => (window as any).__skp?.lastLogin);
     const result = await page.evaluate(() => (window as any).__skp.lastLogin);
     expect(result.ok).toBe(true);
@@ -116,7 +116,7 @@ test.describe("secure-keypad web demo", () => {
     await tap(charKey("sym1", "2"));
     await expect(pw).toHaveValue("•••••");
     await tap(roleKey("sym1", "done"));
-    await page.getByRole("button", { name: "로그인" }).click();
+    await page.getByRole("button", { name: "이체하기" }).click();
     await page.waitForFunction(() => (window as any).__skp?.lastLogin);
     const result = await page.evaluate(() => (window as any).__skp.lastLogin);
     expect(result.ok).toBe(true);
@@ -153,7 +153,7 @@ test.describe("secure-keypad web demo", () => {
     await tap(roleKey("en/lower", "lang"));
     expect(await language()).toBe("ko");
     await expect(pw).toHaveValue("•".repeat(10));
-    await page.getByRole("button", { name: "로그인" }).click();
+    await page.getByRole("button", { name: "이체하기" }).click();
     await page.waitForFunction(() => (window as any).__skp?.lastLogin);
     const result = await page.evaluate(() => (window as any).__skp.lastLogin);
     expect(result.ok).toBe(true);
@@ -194,7 +194,7 @@ test.describe("secure-keypad web demo", () => {
     const lower = layout.layouts.find((l) => l.mode === "lower")!;
     const chars = lower.keys.filter((k) => k.role === "char");
     for (const k of chars.slice(0, 10)) await tapDevicePoint(page, box, layout, ...centre(k));
-    await page.getByRole("button", { name: "로그인" }).click();
+    await page.getByRole("button", { name: "이체하기" }).click();
     await page.waitForFunction(() => (window as any).__skp?.lastLogin);
     const result = await page.evaluate(() => (window as any).__skp.lastLogin);
     expect(result.password).toHaveLength(10);

@@ -3,69 +3,115 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>secure-keypad app screen</title>
+  <title>차돌이뱅크 앱 · 이체</title>
+  <link rel="stylesheet" href="bank.css">
   <style>
-    :root { --bg: #f5f6f8; --card: #fff; --ink: #111418; --muted: #6b7280; --line: #e3e6ec; --accent: #0b6b6e; --field: #f0f2f5; }
-    html[data-theme="dark"] { --bg: #000; --card: #16181d; --ink: #f2f3f5; --muted: #9aa1ad; --line: #2a2e36; --accent: #5cc6c8; --field: #22262e; }
-    html[data-device="android"] { --accent: #1a73e8; }
-    html[data-device="android"][data-theme="dark"] { --accent: #8ab4f8; }
-    * { box-sizing: border-box; }
     html, body { height: 100%; }
-    body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; -webkit-font-smoothing: antialiased; }
-    html[data-device="android"] body { font-family: Roboto, "Noto Sans KR", "Segoe UI", sans-serif; }
-    .screen { min-height: 100%; padding: calc(var(--status-h, 0px) + 12px) 20px 40px; }
-    .appbar { display: flex; align-items: center; justify-content: space-between; height: 44px; font-weight: 600; font-size: 17px; }
-    .appbar .back { color: var(--accent); font-weight: 400; font-size: 15px; }
-    .avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8fd3d4); margin: 20px auto 10px; }
-    h1 { text-align: center; font-size: 20px; margin: 0 0 4px; }
-    p.sub { text-align: center; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
-    .card { background: var(--card); border-radius: 14px; padding: 18px; border: 1px solid var(--line); }
-    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; font-weight: 600; letter-spacing: .02em; }
-    input { width: 100%; font-size: 22px; letter-spacing: 8px; padding: 12px 14px; border: 0; border-radius: 10px; background: var(--field); color: var(--ink); }
-    input:focus { outline: 2px solid var(--accent); }
-    html[data-device="android"] input { border-radius: 4px; border-bottom: 2px solid var(--muted); }
-    html[data-device="android"] input:focus { outline: none; border-bottom-color: var(--accent); }
-    button.login { width: 100%; margin-top: 16px; padding: 14px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 600; }
-    html[data-device="android"] button.login { border-radius: 24px; text-transform: none; }
-    html[data-theme="dark"][data-device="android"] button.login { color: #0b1e1f; }
-    .status { margin-top: 10px; font-size: 12px; color: #c0392b; min-height: 16px; font-family: ui-monospace, Menlo, monospace; }
-    .res { margin-top: 12px; border-radius: 10px; padding: 10px 12px; font-size: 13px; background: var(--field); }
-    .res.err { background: rgba(192,57,43,.12); }
-    .res-title { font-weight: 700; margin-bottom: 4px; }
-    .res-row { display: grid; grid-template-columns: 62px 40px 1fr; gap: 6px; align-items: center; padding: 2px 0; }
-    .res-value { font-family: ui-monospace, Menlo, monospace; font-size: 15px; letter-spacing: 2px; background: none; }
-    .res-hidden, .res-note { color: var(--muted); font-size: 11px; }
-    .res-note { margin-top: 6px; }
-    .hint { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
-    .menu { display: none; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 0 0 8px; }
-    .menu a { font-size: 12px; color: var(--accent); text-decoration: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; }
+    body { background: var(--bg); }
+    .screen { min-height: 100%; padding: calc(var(--status-h, 0px) + 8px) 16px calc(96px + var(--safe-bottom, 0px)); }
+    .appbar { display: flex; align-items: center; gap: 10px; height: 44px; }
+    .appbar .wordmark { font-size: 17px; gap: 6px; }
+    .appbar .wordmark .en { display: none; }
+    .appbar .spacer { margin-left: auto; }
+    .iconbtn { width: 34px; height: 34px; border: 0; border-radius: 12px; background: var(--field); color: var(--ink); font-size: 15px; cursor: pointer; }
+    .greet { font-size: 20px; font-weight: 800; margin: 10px 2px 12px; letter-spacing: -.02em; }
+    .card { border-radius: 18px; padding: 18px; }
+    .account .balance { font-size: 26px; }
+    .amount input { font-size: 22px; }
+    input.text { font-size: 16px; padding: 13px 14px; }
+    button.primary { padding: 15px; border-radius: 14px; }
+    .tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: var(--card);
+      border-top: 1px solid var(--line); padding: 8px 0 calc(8px + var(--safe-bottom, 0px));
+    }
+    .tabbar a { flex: 1; text-align: center; text-decoration: none; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .tabbar a .ic { display: block; font-size: 18px; line-height: 1.3; }
+    .tabbar a.on { color: var(--ink); }
+    .menu { display: none; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 0 0 10px; }
+    .menu a { font-size: 12px; color: var(--action); text-decoration: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; }
     html[data-standalone="1"] .menu { display: flex; }
+    .settings { margin-top: 14px; }
   </style>
 </head>
 <body>
   <div class="screen">
-    <nav class="menu" aria-label="예제 메뉴">
-      <a href="./">일반 웹</a><a href="ios.html">iPhone 시뮬레이션</a><a href="android.html">Pixel 시뮬레이션</a>
-      <a href="app.html?device=ios">iOS 화면</a><a href="app.html?device=android">Android 화면</a><a href="native.html">네이티브 SDK 예제</a>
+    <nav class="menu" aria-label="데모 메뉴">
+      <a href="./">웹뱅킹</a><a href="ios.html">iPhone 시뮬레이션</a><a href="android.html">Pixel 시뮬레이션</a>
+      <a href="app.html?device=ios">iOS 화면</a><a href="app.html?device=android">Android 화면</a><a href="native.html">SDK 예제</a>
     </nav>
-    <div class="appbar"><span class="back">‹ 뒤로</span><span>간편 로그인</span><span style="width:44px"></span></div>
-    <div class="avatar"></div>
-    <h1>안녕하세요, 회원님</h1>
-    <p class="sub">보안 키패드로 안전하게 입력하세요</p>
-    <form class="card" id="login" autocomplete="off">
-      <label for="pin">간편 비밀번호 6자리</label>
-      <input id="pin" type="password" placeholder="••••••" aria-label="간편 비밀번호">
-      <label for="password">로그인 비밀번호</label>
-      <input id="password" type="password" placeholder="••••••••" aria-label="로그인 비밀번호">
-      <button class="login" type="submit">로그인</button>
+
+    <div class="appbar">
+      <span class="wordmark"><span class="cat">🐱</span>차돌이뱅크</span>
+      <span class="spacer"></span>
+      <button class="iconbtn" type="button" id="gear" aria-label="데모 설정 열기">⚙︎</button>
+    </div>
+    <div class="greet">차돌이 집사님,<br>오늘도 안전하게 이체하세요</div>
+
+    <div class="card account">
+      <div class="label">차돌이 통장 ⭐</div>
+      <div class="balance">17,372,842,148원</div>
+      <div class="num">1002-8801-2024</div>
+      <div class="chips"><button type="button">카드</button><button type="button">이체</button></div>
+    </div>
+
+    <form class="card" id="login" autocomplete="off" style="margin-top:14px">
+      <h2>이체하기</h2>
+      <label class="field"><span class="lab">받는 분</span>
+        <input class="text" type="text" value="츄르마켓 3333-01-1234567" readonly aria-label="받는 분">
+      </label>
+      <label class="field"><span class="lab">보낼 금액</span>
+        <span class="amount"><input class="text" id="amount" type="text" inputmode="numeric" value="50,000" aria-label="보낼 금액"><span class="won">원</span></span>
+      </label>
+      <div class="steps" style="margin-top:16px">
+        <div class="step on" id="step1"><div class="n">STEP 1</div><div class="t">출금 비밀번호</div></div>
+        <div class="step" id="step2"><div class="n">STEP 2</div><div class="t">인증서 비밀번호</div></div>
+      </div>
+      <label class="field"><span class="lab">출금 비밀번호 (숫자 4자리)</span>
+        <input class="text secret" id="pin" type="password" placeholder="••••" aria-label="출금 비밀번호">
+      </label>
+      <label class="field"><span class="lab">차돌이인증서 비밀번호</span>
+        <input class="text secret" id="password" type="password" placeholder="••••••••" aria-label="차돌이인증서 비밀번호">
+      </label>
+      <div class="hintline" id="hint"></div>
+      <button class="primary" type="submit">이체하기</button>
       <div class="status" id="status" role="status"></div>
       <div id="result"></div>
     </form>
-    <p class="hint" id="hint"></p>
+
+    <details class="settings" id="settings">
+      <summary>데모 설정 <span class="sub">— 키패드 배열 · 스타일 · 언어</span></summary>
+      <div class="setgrid">
+        <label>키 배열
+          <select id="layout">
+            <option value="shuffle">shuffle (기본)</option>
+            <option value="full">full (전체 섞기)</option>
+            <option value="fixed">fixed (표준 배열 · 경고)</option>
+          </select>
+        </label>
+        <label>키보드 언어
+          <select id="langs">
+            <option value="en,ko">영어 + 한국어</option>
+            <option value="ko,en">한국어 + 영어</option>
+            <option value="en">영어만</option>
+            <option value="ko">한국어만</option>
+          </select>
+        </label>
+      </div>
+      <div class="setnote" id="settings-status" aria-live="polite"></div>
+    </details>
   </div>
+
+  <nav class="tabbar" aria-label="앱 탭">
+    <a href="#" class="on"><span class="ic">🏠</span>홈</a>
+    <a href="#"><span class="ic">🎁</span>혜택</a>
+    <a href="#"><span class="ic">📈</span>투자</a>
+    <a href="#"><span class="ic">⋯</span>전체</a>
+  </nav>
+
   <script src="dist/secure-keypad.iife.js"></script>
   <script src="config.js"></script>
   <script src="demo.js"></script>
+  <script src="settings.js"></script>
   <script>
     (async () => {
       const qs = SkpDemo.qs;
@@ -75,35 +121,85 @@
       document.documentElement.dataset.theme = theme;
       if (qs.get("embedded") !== "1") document.documentElement.dataset.standalone = "1";
       // inside a device frame the host draws the status bar over us: leave room for it
-      const statusH = Number(qs.get("statusH") || 0);
-      document.documentElement.style.setProperty("--status-h", statusH + "px");
+      document.documentElement.style.setProperty("--status-h", Number(qs.get("statusH") || 0) + "px");
+      const safeBottom = Number(qs.get("safeBottom") || 0);
+      document.documentElement.style.setProperty("--safe-bottom", safeBottom + "px");
+
       const status = document.getElementById("status");
       const result = document.getElementById("result");
       const hint = document.getElementById("hint");
+      const step1 = document.getElementById("step1");
+      const step2 = document.getElementById("step2");
+      const amount = document.getElementById("amount");
+      const layoutSel = document.getElementById("layout");
+      const langsSel = document.getElementById("langs");
+      const PIN_LEN = 4;
+      let settings = null;
+      SkpSettings.preselect({ layout: layoutSel, langs: langsSel });
+
+      const won = (n) => n.toLocaleString("ko-KR");
+      amount.addEventListener("input", () => {
+        const n = Number(amount.value.replace(/[^0-9]/g, "")) || 0;
+        amount.value = n ? won(n) : "";
+      });
+      document.getElementById("gear").addEventListener("click", () => {
+        const s = document.getElementById("settings");
+        s.open = !s.open;
+        if (s.open) s.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+
       const demo = await SkpDemo.setup({
         pinEl: document.getElementById("pin"),
         passwordEl: document.getElementById("password"),
-        layout: () => qs.get("layout") || "shuffle",
+        pinMaxLen: PIN_LEN,
+        passwordMaxLen: 32,
+        layout: () => layoutSel.value,
         style: device === "ios" ? "ios" : "material",
         theme,
-        languages: qs.get("langs") || undefined,              // e.g. ?langs=ko,en — omit for the server default (en, ko)
-        popups: qs.get("popups") === "0" ? false : true,      // simulations use a mouse: always show popups
-        safeAreaBottom: Number(qs.get("safeBottom") || 0),
-        doneLabel: "완료",
+        languages: langsSel.value,
+        popups: qs.get("popups") === "0" ? false : true, // simulations are driven with a mouse: always show popups
+        safeAreaBottom: safeBottom,
+        doneLabel: "확인",
         onStatus: (m) => (status.textContent = m),
-        onLang: (code) => (hint.textContent = `${base()} · 지금 ${SkpDemo.LANGUAGE_NAMES[code] || code}`),
+        onChange: (name, length) => {
+          if (name === "pin") {
+            step1.classList.toggle("done", length >= PIN_LEN);
+            if (length >= PIN_LEN) {
+              step2.classList.add("on");
+              hint.textContent = "차돌이인증서 비밀번호를 입력하세요.";
+              setTimeout(() => document.getElementById("password").focus(), 120);
+            }
+          } else {
+            step2.classList.toggle("done", length > 0);
+          }
+        },
+        onLang: (code) => settings?.setLanguage(code),
       });
-      const base = () => `배열 ${qs.get("layout") || "shuffle"} · ${device === "ios" ? "iOS" : "Material"} 스타일 · 언어 ${SkpDemo.languageLabel(SkpDemo.parseLangs(qs.get("langs")))} · kid ${demo.kid}`;
-      hint.textContent = base();
-      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx };
+
+      settings = SkpSettings.wire({
+        demo, layout: layoutSel, langs: langsSel, status: "settings-status",
+        onApply: () => {
+          step1.classList.add("on");
+          step1.classList.remove("done");
+          step2.classList.remove("done", "on");
+          SkpDemo.renderResult(result, null);
+        },
+      });
+      settings.describe();
+      hint.textContent = "입력창을 누르면 보안 키패드가 열립니다.";
+
+      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx, demo };
       document.getElementById("login").addEventListener("submit", async (e) => {
         e.preventDefault();
         status.textContent = "";
         try {
           const json = await demo.login();
           window.__skp.lastLogin = json;
-          SkpDemo.renderResult(result, json);
+          SkpDemo.renderResult(result, json, { amount: amount.value, payee: "츄르마켓 3333-01-1234567" });
           parent.postMessage({ type: "skp-login", json }, "*");
+          step1.classList.add("on");
+          step1.classList.remove("done");
+          step2.classList.remove("done", "on");
         } catch (err) {
           status.textContent = err.message;
         }

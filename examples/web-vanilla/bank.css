@@ -1,0 +1,183 @@
+/* 차돌이뱅크 (Chadole Bank) demo skin: a Toss-style Korean banking UI for the secure-keypad demo.
+   Not a real bank — every page carries a demo strip saying so. */
+:root {
+  color-scheme: light dark;
+  --bg: #f2f4f6; --card: #ffffff; --ink: #191919; --muted: #6b7684; --line: #e8eaed;
+  --brand: #14342f; --brand-soft: #2ed3c6; --brand-tint: #e3f5e9; --cream: #fff0d6;
+  --action: #3182f6; --action-ink: #ffffff; --danger: #f04452; --warn: #ffd43b;
+  --field: #f2f4f6; --shadow: 0 2px 10px rgba(20, 52, 47, .06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101314; --card: #191d1f; --ink: #f0f2f3; --muted: #97a1a6; --line: #2a3033;
+    --brand: #b3e3df; --brand-soft: #2ed3c6; --brand-tint: #14342f; --cream: #2a2416;
+    --action: #6aa8ff; --action-ink: #05203f; --danger: #ff6b74; --field: #22282a;
+    --shadow: 0 2px 10px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--action); }
+h1, h2, h3 { letter-spacing: -.02em; }
+
+/* demo strip: makes clear this is a keypad demo, not a bank */
+.demostrip {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: center;
+  background: var(--brand); color: #eafffb; font-size: 12px; padding: 7px 14px;
+}
+.demostrip b { color: #fff; }
+.demostrip a { color: #9fe9e0; text-decoration: none; border-bottom: 1px solid rgba(159, 233, 224, .5); }
+
+/* playground navigation (the demo's own bar, not part of the bank UI) */
+.topnav {
+  display: flex; flex-wrap: wrap; gap: 2px; align-items: center; padding: 6px 16px;
+  background: var(--card); border-bottom: 1px solid var(--line); font-size: 13px;
+}
+.topnav a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 8px; white-space: nowrap; }
+.topnav a:hover { background: var(--bg); color: var(--ink); }
+.topnav a.active { color: var(--ink); font-weight: 700; background: var(--bg); }
+.topnav .brand { font-weight: 800; color: var(--ink); font-family: ui-monospace, Menlo, monospace; margin-right: 6px; }
+.topnav .group { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--line); }
+.topnav .glabel { font-size: 11px; font-weight: 800; color: var(--muted); padding: 0 4px; letter-spacing: .04em; }
+.topnav .gh { margin-left: auto; }
+@media (max-width: 700px) { .topnav .gh { margin-left: 0; } }
+
+/* bank chrome */
+.bankbar {
+  display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--card);
+  border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
+}
+.wordmark { display: flex; align-items: baseline; gap: 8px; font-weight: 800; font-size: 19px; color: var(--ink); text-decoration: none; }
+.wordmark .cat { font-size: 22px; }
+.wordmark .en { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.banknav { display: flex; gap: 4px; margin-left: 10px; }
+.banknav a { padding: 7px 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-weight: 700; font-size: 14px; }
+.banknav a.on, .banknav a:hover { background: var(--bg); color: var(--ink); }
+.bankbar .spacer { margin-left: auto; }
+.userchip { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.userchip .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-soft), var(--cream)); }
+
+.wrap { max-width: 1020px; margin: 0 auto; padding: 26px 20px 80px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 22px; box-shadow: var(--shadow); }
+.card + .card { margin-top: 16px; }
+.card h2 { font-size: 17px; margin: 0 0 14px; }
+.card h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); }
+
+/* account card */
+.account { background: linear-gradient(135deg, var(--brand), #1d4a43); color: #eafffb; border: 0; }
+.account .label { font-size: 13px; opacity: .8; display: flex; align-items: center; gap: 6px; }
+.account .balance { font-size: 30px; font-weight: 800; margin: 6px 0 2px; letter-spacing: -.03em; }
+.account .num { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }
+.account .chips { display: flex; gap: 8px; margin-top: 16px; }
+.account .chips button {
+  flex: 1; padding: 9px 0; border: 0; border-radius: 12px; background: rgba(255, 255, 255, .16);
+  color: #eafffb; font-weight: 700; font-size: 14px; cursor: pointer;
+}
+.account .chips button:hover { background: rgba(255, 255, 255, .26); }
+
+/* forms */
+label.field { display: block; margin: 14px 0 0; }
+label.field .lab { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+input.text, .fake-input {
+  width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--field);
+  color: var(--ink); font-size: 16px; font-family: inherit;
+}
+input.text:focus { outline: 2px solid var(--action); border-color: transparent; }
+input.secret { letter-spacing: 8px; font-size: 20px; }
+input[readonly].text { color: var(--muted); }
+.amount { display: flex; align-items: baseline; gap: 8px; }
+.amount input { font-size: 24px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.amount .won { font-size: 18px; font-weight: 700; color: var(--muted); }
+.quick { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.quick button { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer; }
+.quick button:hover { color: var(--ink); border-color: var(--muted); }
+
+button.primary {
+  width: 100%; margin-top: 20px; padding: 16px; border: 0; border-radius: 14px; background: var(--action);
+  color: var(--action-ink); font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+button.primary:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
+button.ghost { padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font-size: 13px; cursor: pointer; font-family: inherit; }
+
+/* auth steps */
+.steps { display: flex; gap: 8px; margin: 4px 0 10px; }
+.step { flex: 1; padding: 10px 12px; border-radius: 12px; background: var(--field); border: 1px solid transparent; }
+.step .n { font-size: 11px; font-weight: 800; color: var(--muted); }
+.step .t { font-size: 13px; font-weight: 700; }
+.step.on { background: var(--brand-tint); border-color: var(--brand-soft); }
+.step.done .t::after { content: " ✓"; color: var(--brand-soft); }
+.hintline { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+.status { margin-top: 10px; font-size: 13px; color: var(--danger); min-height: 18px; white-space: pre-wrap; }
+
+/* receipt / result */
+.receipt { margin-top: 16px; border-radius: 16px; padding: 16px; background: var(--brand-tint); border: 1px solid var(--brand-soft); }
+.receipt.err { background: rgba(240, 68, 82, .1); border-color: var(--danger); }
+.receipt .rt { font-weight: 800; margin-bottom: 8px; }
+.receipt .row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; }
+.receipt .row span:first-child { color: var(--muted); }
+.receipt code { font-family: ui-monospace, Menlo, monospace; background: rgba(0, 0, 0, .06); padding: 1px 6px; border-radius: 6px; }
+.receipt .note { margin-top: 10px; font-size: 12px; color: var(--muted); }
+
+/* demo settings */
+.settings { border: 1px dashed var(--line); border-radius: 16px; padding: 12px 16px 14px; background: var(--card); }
+.settings > summary { font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.settings > summary::-webkit-details-marker { display: none; }
+.settings > summary::before { content: "⚙︎"; }
+.settings > summary .sub { font-weight: 400; font-size: 12px; color: var(--muted); }
+.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+.setgrid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+select {
+  font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink);
+}
+.setnote { margin-top: 10px; font-size: 12px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; min-height: 16px; }
+.muted { color: var(--muted); font-size: 13px; }
+.small { font-size: 12px; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .92em; background: var(--field); padding: 1px 5px; border-radius: 5px; }
+.explain ol { padding-left: 20px; margin: 0 0 10px; font-size: 14px; }
+.explain li { margin-bottom: 6px; }
+
+/* explicit theme (the device frames pass ?theme=light|dark; otherwise the system setting applies) */
+html[data-theme="light"] {
+  --bg: #f2f4f6; --card: #ffffff; --ink: #191919; --muted: #6b7684; --line: #e8eaed;
+  --brand: #14342f; --brand-tint: #e3f5e9; --action: #3182f6; --action-ink: #ffffff;
+  --danger: #f04452; --field: #f2f4f6; --shadow: 0 2px 10px rgba(20, 52, 47, .06);
+}
+html[data-theme="dark"] {
+  --bg: #101314; --card: #191d1f; --ink: #f0f2f3; --muted: #97a1a6; --line: #2a3033;
+  --brand: #b3e3df; --brand-tint: #14342f; --action: #6aa8ff; --action-ink: #05203f;
+  --danger: #ff6b74; --field: #22282a; --shadow: 0 2px 10px rgba(0, 0, 0, .4);
+}
+html[data-theme="dark"] .account { background: linear-gradient(135deg, #14342f, #0e2320); color: #d7f5f0; }
+
+/* documentation pages (native.html) and the device-frame pages */
+.page { max-width: 1020px; margin: 0 auto; padding: 26px 20px 80px; }
+.hero h1 { font-size: 26px; margin: 0 0 8px; }
+.hero p { color: var(--muted); max-width: 66ch; margin: 0 0 22px; }
+.native .card { margin-bottom: 18px; }
+.native h2 { margin-top: 4px; }
+.native pre { background: var(--field); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; }
+.native pre code { background: none; padding: 0; }
+.native table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 12px; }
+.native th, .native td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.native th { color: var(--muted); white-space: nowrap; }
+.phone-hint { display: none; }
+@media (max-width: 860px) { .phone-hint { display: block; } }
+.controls .setgrid { margin-top: 10px; }
+
+/* phones visiting the web banking page: the bank bar keeps the wordmark only */
+@media (max-width: 640px) {
+  .bankbar { padding: 12px 16px; gap: 10px; }
+  .wordmark { font-size: 17px; white-space: nowrap; }
+  .wordmark .en, .banknav, .userchip .name { display: none; }
+  .wrap { padding: 18px 14px 90px; }
+  .card { padding: 18px; border-radius: 18px; }
+  .demostrip { font-size: 11px; padding: 6px 12px; }
+}

@@ -12,15 +12,29 @@
       window.parent.postMessage({ type: "skp-banner", message }, "*");
       return;
     }
+    // in normal flow at the very top: a fixed overlay used to cover the sticky navigation underneath it
     let el = document.getElementById("backend-banner");
     if (!el) {
       el = document.createElement("div");
       el.id = "backend-banner";
       el.setAttribute("role", "alert");
-      el.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483001;background:#fff3d1;color:#5a3d00;padding:12px 16px;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;border-bottom:1px solid #e6c860;white-space:pre-wrap";
+      el.style.cssText =
+        "position:relative;z-index:2147483001;background:#fff3d1;color:#5a3d00;padding:12px 44px 12px 16px;" +
+        "font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;border-bottom:1px solid #e6c860;white-space:pre-wrap";
+      const text = document.createElement("span");
+      text.id = "backend-banner-text";
+      const close = document.createElement("button");
+      close.type = "button";
+      close.textContent = "×";
+      close.setAttribute("aria-label", "안내 닫기");
+      close.style.cssText =
+        "position:absolute;top:6px;right:8px;width:28px;height:28px;border:0;border-radius:6px;background:transparent;" +
+        "color:inherit;font:20px/1 system-ui,sans-serif;cursor:pointer";
+      close.addEventListener("click", () => el.remove());
+      el.append(text, close);
       document.body.prepend(el);
     }
-    el.textContent = message;
+    el.querySelector("#backend-banner-text").textContent = message;
   }
 
   let fetchImpl = (...a) => fetch(...a);
@@ -89,6 +103,33 @@
    * languages ("ko,en" or array), popups, safeAreaBottom, doneLabel, mount, onStatus, onLang(code).
    * The returned object can `apply({ layout, style, languages })` to rebuild the keypads without reloading.
    */
+  /** Height of the open keypad sheet, read from the client's open shadow root (0 when none is open). */
+  function openSheetHeight() {
+    for (const host of document.querySelectorAll(".skp-host")) {
+      const sheet = host.shadowRoot && host.shadowRoot.querySelector(".sheet.open");
+      if (sheet) return Math.round(sheet.getBoundingClientRect().height);
+    }
+    return 0;
+  }
+
+  /**
+   * Keeps the page usable while a keypad covers the bottom of the screen: reserve the sheet's height at the
+   * end of the document (like a native keyboard does) and scroll the field being typed into view.
+   */
+  function reserveSpaceFor(input) {
+    const apply = () => {
+      const h = openSheetHeight();
+      document.body.style.paddingBottom = h ? h + 24 + "px" : "";
+      if (h && input) input.scrollIntoView({ block: "center", behavior: "smooth" });
+    };
+    apply();
+    setTimeout(apply, 280); // the sheet slides in over 240ms
+  }
+
+  function releaseSpace() {
+    if (!openSheetHeight()) document.body.style.paddingBottom = "";
+  }
+
   async function setup(o) {
     const { publicKey, kid } = await resolveBackend();
     const ctx = "demo-" + Math.random().toString(36).slice(2, 10);
@@ -115,8 +156,8 @@
         doneLabel: o.doneLabel || "Done",
         mount: o.mount,
       };
-      const pin = SecureKeypad.createSecureKeypad({ ...common, type: "number", maxLen: 6 });
-      const password = SecureKeypad.createSecureKeypad({ ...common, type: "qwerty", maxLen: 32, languages: settings.languages });
+      const pin = SecureKeypad.createSecureKeypad({ ...common, type: "number", maxLen: o.pinMaxLen ?? 6 });
+      const password = SecureKeypad.createSecureKeypad({ ...common, type: "qwerty", maxLen: o.passwordMaxLen ?? 32, languages: settings.languages });
       demo.pin = pin;
       demo.password = password;
       delete layouts.pin;
@@ -127,6 +168,12 @@
       for (const [name, kp] of [["pin", pin], ["password", password]]) {
         kp.on("error", ({ error }) => o.onStatus?.(name + ": " + error.message));
         kp.on("expire", () => o.onStatus?.(name + ": 세션 만료 — 다시 입력하세요"));
+        kp.on("open", () => reserveSpaceFor(name === "pin" ? o.pinEl : o.passwordEl));
+        kp.on("close", () => setTimeout(releaseSpace, 300));
+        kp.on("submit", () => setTimeout(releaseSpace, 300));
+        kp.on("change", ({ length }) => o.onChange?.(name, length));
+        kp.on("done", () => o.onDone?.(name, kp.length));
+        kp.on("ready", () => o.onReady?.(name, kp));
       }
       pin.attach(o.pinEl);
       password.attach(o.passwordEl);
@@ -177,35 +224,39 @@
     return demo;
   }
 
-  /** Renders the /login result into a container: lengths always, values only when the server is in demo-echo mode. */
-  function renderResult(el, json) {
+  /**
+   * Renders the /login result as a transfer receipt: what the server decrypted from the tap coordinates.
+   * Values appear only when the example server runs in demo-echo mode; a real bank never returns them.
+   */
+  function renderResult(el, json, extra) {
     if (!json) {
       el.innerHTML = "";
       return;
     }
     if (json.error) {
-      el.innerHTML = `<div class="res err">서버 거부: <code>${escapeHtml(json.error)}</code></div>`;
+      const reason = json.error === "SESSION_NOT_FOUND" ? "세션이 이미 사용되었거나 만료되었습니다" : "서버가 요청을 거부했습니다";
+      el.innerHTML = `<div class="receipt err"><div class="rt">이체 실패</div><div class="row"><span>사유</span><span>${reason} <code>${escapeHtml(json.error)}</code></span></div></div>`;
       return;
     }
     const rows = [];
-    if (json.pinLength !== undefined) rows.push(["PIN", json.pinLength, json.pin]);
-    if (json.passwordLength !== undefined) rows.push(["비밀번호", json.passwordLength, json.password]);
-    if (!rows.length) {
-      el.innerHTML = `<div class="res err">입력된 값이 없습니다</div>`;
+    if (extra && extra.payee) rows.push(["받는 분", escapeHtml(extra.payee)]);
+    if (extra && extra.amount) rows.push(["보낸 금액", escapeHtml(extra.amount) + "원"]);
+    const secret = (label, len, value) =>
+      rows.push([label, len === undefined ? "입력 없음" : `${len}자 · ` + (value !== undefined ? `<code>${escapeHtml(value)}</code>` : "값은 서버만 압니다")]);
+    secret("출금 비밀번호", json.pinLength, json.pin);
+    secret("차돌이인증서 비밀번호", json.passwordLength, json.password);
+    if (json.pinLength === undefined && json.passwordLength === undefined) {
+      el.innerHTML = `<div class="receipt err"><div class="rt">이체 실패</div><div class="row"><span>사유</span><span>입력된 비밀번호가 없습니다</span></div></div>`;
       return;
     }
+    rows.push(["거래번호", "CDL" + Date.now().toString().slice(-9)]);
     el.innerHTML =
-      `<div class="res ${json.ok ? "ok" : "err"}">` +
-      `<div class="res-title">서버 복호화 결과 ${json.ok ? "✓" : "✗"}</div>` +
-      rows
-        .map(
-          ([label, len, value]) =>
-            `<div class="res-row"><span>${label}</span><span>${len}자</span>` +
-            (value !== undefined ? `<code class="res-value">${escapeHtml(value)}</code>` : `<span class="res-hidden">값은 서버만 압니다</span>`) +
-            `</div>`,
-        )
-        .join("") +
-      (json.demoEcho ? `<div class="res-note">데모 모드: 서버가 복호화한 값을 표시합니다. 실제 서비스는 값을 절대 돌려주지 않습니다. 한글은 서버가 자모를 음절로 조합한 결과입니다.</div>` : "") +
+      `<div class="receipt${json.ok ? "" : " err"}">` +
+      `<div class="rt">${json.ok ? "이체 완료 ✓" : "이체 실패"}</div>` +
+      rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join("") +
+      (json.demoEcho
+        ? `<div class="note">데모 모드라서 서버가 복원한 값을 그대로 보여줍니다. 실제 서비스는 값을 화면으로 돌려주지 않습니다. 한글은 서버가 자모를 음절로 조합한 결과입니다.</div>`
+        : "") +
       `</div>`;
   }
 

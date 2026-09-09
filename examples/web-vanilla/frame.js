@@ -43,6 +43,25 @@
     if (e.data.type === "skp-login") SkpDemo.renderResult(result, e.data.json);
     if (e.data.type === "skp-banner" && note) note.textContent = e.data.message;
   });
+  // the frames are fixed-size desktop previews (414 / 432 px): scale them down rather than overflow a phone
+  const deviceEl = document.querySelector(".device");
+  function fitDevice() {
+    deviceEl.style.transform = "";
+    deviceEl.style.margin = "";
+    const avail = (deviceEl.parentElement.clientWidth || window.innerWidth) - 8;
+    const w = deviceEl.offsetWidth;
+    const h = deviceEl.offsetHeight;
+    if (!w || avail >= w) return;
+    const s = Math.max(0.4, avail / w);
+    deviceEl.style.transformOrigin = "top left";
+    deviceEl.style.transform = `scale(${s})`;
+    deviceEl.style.marginRight = `${-Math.round(w * (1 - s))}px`;
+    deviceEl.style.marginBottom = `${-Math.round(h * (1 - s))}px`;
+  }
+  fitDevice();
+  window.addEventListener("resize", fitDevice);
+  frame.addEventListener("load", fitDevice);
+
   function tick() {
     const d = new Date();
     const t = `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}`;

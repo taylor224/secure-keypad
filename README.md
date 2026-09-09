@@ -8,8 +8,9 @@ Keyboards: number pad and QWERTY with **English + Korean (2-set / 두벌식)** b
 globe key; Hangul syllables are composed on the server ([spec/HANGUL.md](spec/HANGUL.md)). The language set
 is chosen by the server (`languages: ["ko", "en"]`), else requested by the client, else `en, ko`.
 
-Playground: <https://taylor224.github.io/secure-keypad/> — a normal web page, iPhone and Pixel simulations, and
-a page on the native iOS / Android SDK examples. With
+Playground: <https://taylor224.github.io/secure-keypad/> — a demo bank ("차돌이뱅크 / Chadole Bank", not a real
+bank) that asks for a withdrawal password on the number pad and a certificate password on the full keyboard,
+as web banking, as an app inside iPhone and Pixel frames, and as native SDK examples. With
 no backend configured the page runs the server SDK's WebAssembly build in-browser (a demo of the mechanics, not of
 the security model); point it at a real example server with `?api=…` (see [examples/server-node](examples/server-node/README.md)). Design plan: [docs/PLAN.md](docs/PLAN.md) (Korean). Specification: [spec/PROTOCOL.md](spec/PROTOCOL.md),
 [spec/LAYOUT.md](spec/LAYOUT.md), [spec/HANGUL.md](spec/HANGUL.md), [spec/THREAT-MODEL.md](spec/THREAT-MODEL.md).
