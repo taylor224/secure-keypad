@@ -13,205 +13,128 @@
   </div>
   <nav class="topnav" data-page="web"></nav>
 
-  <header class="bankbar">
-    <a class="wordmark" href="./"><span class="cat">🐱</span>차돌이뱅크<span class="en">CHADOLE BANK</span></a>
-    <nav class="banknav">
-      <a href="#" class="on">홈</a><a href="#">혜택</a><a href="#">투자</a><a href="#">전체</a>
-    </nav>
-    <span class="spacer"></span>
-    <span class="userchip"><span class="avatar"></span><span class="name">차돌이 집사님</span></span>
-  </header>
-
-  <main class="wrap">
-    <div class="cols">
-      <section>
-        <div class="card account">
-          <div class="label">차돌이 통장 ⭐</div>
-          <div class="balance">17,372,842,148원</div>
-          <div class="num">차돌이뱅크 1002-8801-2024</div>
-          <div class="chips"><button type="button">카드</button><button type="button">이체</button><button type="button">저금통 🐟</button></div>
-        </div>
-
-        <form class="card" id="login" autocomplete="off">
-          <h2>이체하기</h2>
-          <label class="field"><span class="lab">출금 계좌</span>
-            <input class="text" type="text" value="차돌이 통장 1002-8801-2024" readonly aria-label="출금 계좌">
-          </label>
-          <label class="field"><span class="lab">받는 분</span>
-            <input class="text" type="text" value="츄르마켓 3333-01-1234567" readonly aria-label="받는 분">
-          </label>
-          <label class="field"><span class="lab">보낼 금액</span>
-            <span class="amount"><input class="text" id="amount" type="text" inputmode="numeric" value="50,000" aria-label="보낼 금액"><span class="won">원</span></span>
-          </label>
-          <div class="quick">
-            <button type="button" data-add="10000">+1만</button>
-            <button type="button" data-add="50000">+5만</button>
-            <button type="button" data-add="100000">+10만</button>
-            <button type="button" data-set="0">직접입력</button>
-          </div>
-
-          <h3>보안 인증</h3>
-          <div class="steps">
-            <div class="step on" id="step1"><div class="n">STEP 1</div><div class="t">출금 비밀번호</div></div>
-            <div class="step" id="step2"><div class="n">STEP 2</div><div class="t">차돌이인증서 비밀번호</div></div>
-          </div>
-          <label class="field"><span class="lab">출금 비밀번호 (숫자 4자리)</span>
-            <input class="text secret" id="pin" type="password" placeholder="••••" aria-label="출금 비밀번호">
-          </label>
-          <label class="field"><span class="lab">차돌이인증서 비밀번호 (영문·한글·숫자)</span>
-            <input class="text secret" id="password" type="password" placeholder="••••••••" aria-label="차돌이인증서 비밀번호">
-          </label>
-          <div class="hintline" id="hint">입력창을 누르면 이 기기 전용으로 만들어진 보안 키패드가 열립니다.</div>
-          <button class="primary" type="submit">이체하기</button>
-          <div class="status" id="status" role="status"></div>
-          <div id="result"></div>
-        </form>
-      </section>
-
-      <aside>
-        <details class="settings" open>
-          <summary>데모 설정 <span class="sub">— 바꾸면 새 세션으로 키패드가 바로 다시 열립니다</span></summary>
-          <div class="setgrid">
-            <label>키 배열
-              <select id="layout">
-                <option value="shuffle">shuffle (기본, 줄 안에서 섞기)</option>
-                <option value="full">full (전체 섞기)</option>
-                <option value="fixed">fixed (표준 배열 · 경고)</option>
-              </select>
-            </label>
-            <label>키패드 스타일
-              <select id="style">
-                <option value="auto">auto (기기에 맞춤)</option>
-                <option value="ios">iOS</option>
-                <option value="material">Material</option>
-              </select>
-            </label>
-            <label>키보드 언어
-              <select id="langs">
-                <option value="en,ko">영어 + 한국어 (기본)</option>
-                <option value="ko,en">한국어 + 영어</option>
-                <option value="en">영어만</option>
-                <option value="ko">한국어만</option>
-              </select>
-            </label>
-          </div>
-          <div class="setnote" id="settings-status" aria-live="polite"></div>
-          <p class="muted small" style="margin:8px 0 0">실제 서비스에서는 <code>fixed</code>를 쓰지 마세요. 표준 배열이면 좌표만으로 입력값을 알 수 있어 서버가 경고를 남깁니다.</p>
-        </details>
-
-        <div class="card explain" style="margin-top:16px">
-          <h2>이 화면에서 일어나는 일</h2>
-          <ol>
-            <li>브라우저가 임시 X25519 키를 만들어 <code>POST /keypad/session</code>에 보냅니다.</li>
-            <li>서버가 이 세션만의 배열을 만들고 글자 <em>이미지</em>와 키 사각형만 암호화해 내려줍니다. 문자 코드는 없습니다.</li>
-            <li>출금 비밀번호와 인증서 비밀번호는 <b>좌표로만</b> 기록됩니다. 화면의 입력창에는 • 만 남습니다.</li>
-            <li>이체하기를 누르면 좌표 묶음이 암호화되어 <code>POST /login</code>으로 가고, 서버 SDK가 값을 복원한 뒤 세션을 파기합니다.</li>
-          </ol>
-          <p class="muted">QWERTY 키패드는 지구본 키로 한국어(두벌식) ↔ 영어를 바꿉니다. 한글 자모는 서버에서 음절로 조합됩니다.</p>
-          <p class="muted">아래 결과 카드는 데모라서 서버가 복원한 값을 그대로 보여줍니다. 실제 은행이라면 값은 서버 밖으로 나가지 않습니다.</p>
-        </div>
-      </aside>
+  <div class="phone">
+    <div class="statusbar">
+      <span class="clock">9:41</span>
+      <span class="right">📶 🛜 <span class="batt">100</span></span>
     </div>
-  </main>
+    <div class="scroll">
+      <div class="home-head">
+        <div class="name">차돌이 집사</div>
+        <div class="head-tools"><span class="bell">🔔<span class="dot"></span></span></div>
+      </div>
+
+      <div class="account-card">
+        <div class="row1">
+          <div class="logo">🐱</div>
+          <div>
+            <div class="acc-name">차돌이 통장 <span>⭐</span></div>
+            <div class="balance">17,372,842,148원</div>
+          </div>
+          <div class="more">⋯</div>
+        </div>
+        <div class="pill-row">
+          <div class="pill">카드</div>
+          <div class="pill">이체</div>
+          <div class="pill wide">저금통 🐟</div>
+        </div>
+      </div>
+
+      <form class="card" id="login" autocomplete="off">
+        <h2>이체하기</h2>
+        <label class="field"><span class="lab">출금 계좌</span>
+          <input class="text" type="text" value="차돌이 통장 1002-8801-2024" readonly aria-label="출금 계좌">
+        </label>
+        <label class="field"><span class="lab">받는 분</span>
+          <input class="text" type="text" value="츄르마켓 3333-01-1234567" readonly aria-label="받는 분">
+        </label>
+        <label class="field"><span class="lab">보낼 금액</span>
+          <span class="amount"><input class="text" id="amount" type="text" inputmode="numeric" value="50,000" aria-label="보낼 금액"><span class="won">원</span></span>
+        </label>
+        <div class="quick">
+          <button type="button" data-add="10000">+1만</button>
+          <button type="button" data-add="50000">+5만</button>
+          <button type="button" data-add="100000">+10만</button>
+          <button type="button" data-set="0">직접입력</button>
+        </div>
+
+        <div class="divider"></div>
+        <h3>보안 인증</h3>
+        <div class="steps">
+          <div class="step on" id="step1"><div class="n">STEP 1</div><div class="t">출금 비밀번호</div></div>
+          <div class="step" id="step2"><div class="n">STEP 2</div><div class="t">인증서 비밀번호</div></div>
+        </div>
+        <label class="field"><span class="lab">출금 비밀번호 (숫자 4자리)</span>
+          <input class="text secret" id="pin" type="password" placeholder="••••" aria-label="출금 비밀번호">
+        </label>
+        <label class="field"><span class="lab">차돌이인증서 비밀번호 (영문·한글·숫자)</span>
+          <input class="text secret" id="password" type="password" placeholder="••••••••" aria-label="차돌이인증서 비밀번호">
+        </label>
+        <div class="hintline" id="hint">입력창을 누르면 이 기기 전용으로 만들어진 보안 키패드가 열립니다.</div>
+        <button class="primary" type="submit">이체하기</button>
+        <div class="status" id="status" role="status"></div>
+        <div id="result"></div>
+      </form>
+
+      <details class="card settings" open>
+        <summary>데모 설정 <span class="sub">— 바꾸면 새 세션으로 다시 열립니다</span></summary>
+        <div class="setgrid">
+          <label>키 배열
+            <select id="layout">
+              <option value="shuffle">shuffle (기본)</option>
+              <option value="full">full (전체 섞기)</option>
+              <option value="fixed">fixed (표준 배열 · 경고)</option>
+            </select>
+          </label>
+          <label>키패드 스타일
+            <select id="style">
+              <option value="auto">auto (기기에 맞춤)</option>
+              <option value="ios">iOS</option>
+              <option value="material">Material</option>
+            </select>
+          </label>
+          <label>키보드 언어
+            <select id="langs">
+              <option value="en,ko">영어 + 한국어</option>
+              <option value="ko,en">한국어 + 영어</option>
+              <option value="en">영어만</option>
+              <option value="ko">한국어만</option>
+            </select>
+          </label>
+        </div>
+        <div class="setnote" id="settings-status" aria-live="polite"></div>
+        <p class="muted small" style="margin-top:8px">실제 서비스에서는 <code>fixed</code>를 쓰지 마세요. 표준 배열이면 좌표만으로 입력값을 알 수 있어 서버가 경고를 남깁니다.</p>
+      </details>
+
+      <div class="card explain">
+        <h2>이 화면에서 일어나는 일</h2>
+        <ol>
+          <li>브라우저가 임시 X25519 키를 만들어 <code>POST /keypad/session</code>에 보냅니다.</li>
+          <li>서버가 이 세션만의 배열을 만들고 글자 <em>이미지</em>와 키 사각형만 암호화해 내려줍니다.</li>
+          <li>비밀번호는 <b>좌표로만</b> 기록되고, 입력창에는 • 만 남습니다.</li>
+          <li>이체하기를 누르면 좌표 묶음이 암호화되어 서버로 가고, 서버 SDK가 값을 복원한 뒤 세션을 파기합니다.</li>
+        </ol>
+        <p class="muted">QWERTY 키패드는 지구본 키로 한국어(두벌식) ↔ 영어를 바꿉니다. 한글 자모는 서버에서 음절로 조합됩니다.</p>
+      </div>
+    </div>
+
+    <nav class="tabbar" aria-label="앱 탭">
+      <a class="tab active" href="#"><span class="ic">🏠</span>홈</a>
+      <a class="tab" href="#"><span class="ic">🎁</span>혜택</a>
+      <a class="tab" href="#"><span class="ic">📈</span>투자</a>
+      <a class="tab" href="#"><span class="ic">⋯</span>전체</a>
+    </nav>
+  </div>
 
   <script src="dist/secure-keypad.iife.js"></script>
   <script src="config.js"></script>
   <script src="demo.js"></script>
   <script src="settings.js"></script>
   <script src="nav.js"></script>
+  <script src="bank.js"></script>
   <script>
-    (async () => {
-      const status = document.getElementById("status");
-      const result = document.getElementById("result");
-      const hint = document.getElementById("hint");
-      const step1 = document.getElementById("step1");
-      const step2 = document.getElementById("step2");
-      const amount = document.getElementById("amount");
-      const layoutSel = document.getElementById("layout");
-      const styleSel = document.getElementById("style");
-      const langsSel = document.getElementById("langs");
-      const PIN_LEN = 4;
-      let settings = null;
-      SkpSettings.preselect({ layout: layoutSel, style: styleSel, langs: langsSel });
-
-      const won = (n) => n.toLocaleString("ko-KR");
-      const parseWon = (v) => Number(String(v).replace(/[^0-9]/g, "")) || 0;
-      amount.addEventListener("input", () => {
-        const n = parseWon(amount.value);
-        amount.value = n ? won(n) : "";
-      });
-      document.querySelectorAll(".quick button").forEach((b) =>
-        b.addEventListener("click", () => {
-          if (b.dataset.set !== undefined) return (amount.value = "", amount.focus());
-          amount.value = won(parseWon(amount.value) + Number(b.dataset.add));
-        }),
-      );
-
-      const marks = (name, length) => {
-        if (name === "pin") {
-          step1.classList.toggle("done", length >= PIN_LEN);
-          if (length >= PIN_LEN) step2.classList.add("on");
-        } else {
-          step2.classList.toggle("done", length > 0);
-        }
-      };
-
-      const demo = await SkpDemo.setup({
-        pinEl: document.getElementById("pin"),
-        passwordEl: document.getElementById("password"),
-        pinMaxLen: PIN_LEN,
-        passwordMaxLen: 32,
-        layout: () => layoutSel.value,
-        style: styleSel.value,
-        languages: langsSel.value, // the selects already carry ?layout / ?style / ?langs
-        doneLabel: "확인",
-        onStatus: (m) => (status.textContent = m),
-        onChange: (name, length) => {
-          marks(name, length);
-          // the withdrawal password is exactly four digits: move on to the certificate step
-          if (name === "pin" && length === PIN_LEN) {
-            hint.textContent = "차돌이인증서 비밀번호를 입력하세요.";
-            setTimeout(() => document.getElementById("password").focus(), 120);
-          }
-        },
-        onLang: (code) => settings?.setLanguage(code),
-      });
-
-      settings = SkpSettings.wire({
-        demo,
-        layout: layoutSel,
-        style: styleSel,
-        langs: langsSel,
-        status: "settings-status",
-        onApply: () => {
-          step1.classList.remove("done");
-          step2.classList.remove("done", "on");
-          step1.classList.add("on");
-          SkpDemo.renderResult(result, null);
-        },
-      });
-      settings.describe();
-
-      // E2E hooks: rects and roles only, never characters
-      window.__skp = { pin: demo.pin, password: demo.password, layouts: demo.layouts, ctx: demo.ctx, demo };
-
-      document.getElementById("login").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        status.textContent = "";
-        try {
-          const json = await demo.login();
-          json.amount = amount.value;
-          window.__skp.lastLogin = json;
-          SkpDemo.renderResult(result, json, { amount: amount.value, payee: "츄르마켓 3333-01-1234567" });
-          step1.classList.remove("done");
-          step2.classList.remove("done", "on");
-          step1.classList.add("on");
-          hint.textContent = "새 세션이 준비됐습니다. 다시 입력해 보세요.";
-        } catch (err) {
-          status.textContent = err.message;
-        }
-      });
-    })();
+    SkpSettings.preselect({ layout: "layout", style: "style", langs: "langs" });
+    SkpBank.start();
   </script>
 </body>
 </html>

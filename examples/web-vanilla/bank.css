@@ -1,183 +1,162 @@
-/* 차돌이뱅크 (Chadole Bank) demo skin: a Toss-style Korean banking UI for the secure-keypad demo.
-   Not a real bank — every page carries a demo strip saying so. */
-:root {
-  color-scheme: light dark;
-  --bg: #f2f4f6; --card: #ffffff; --ink: #191919; --muted: #6b7684; --line: #e8eaed;
-  --brand: #14342f; --brand-soft: #2ed3c6; --brand-tint: #e3f5e9; --cream: #fff0d6;
-  --action: #3182f6; --action-ink: #ffffff; --danger: #f04452; --warn: #ffd43b;
-  --field: #f2f4f6; --shadow: 0 2px 10px rgba(20, 52, 47, .06);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #101314; --card: #191d1f; --ink: #f0f2f3; --muted: #97a1a6; --line: #2a3033;
-    --brand: #b3e3df; --brand-soft: #2ed3c6; --brand-tint: #14342f; --cream: #2a2416;
-    --action: #6aa8ff; --action-ink: #05203f; --danger: #ff6b74; --field: #22282a;
-    --shadow: 0 2px 10px rgba(0, 0, 0, .4);
-  }
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-a { color: var(--action); }
-h1, h2, h3 { letter-spacing: -.02em; }
+/* 차돌이뱅크 (Chadole Bank) demo skin.
+   Tokens, typography and components mirror the real app at https://bank.chadole.com (a demo bank, not a
+   real financial institution — every page here says so). Added on top: the transfer form, the demo
+   settings panel and the playground navigation. */
+@import "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css";
 
-/* demo strip: makes clear this is a keypad demo, not a bank */
+:root {
+  --bg: #f2f4f6; --card: #fff; --ink: #18181b; --ink-2: #4e5968; --ink-3: #8b95a1; --line: #f0f1f3;
+  --blue: #3182f6; --teal: #a6e0dd; --teal-deep: #7fcdc8; --teal-card: #b3e3df; --yellow: #ffd43b;
+  --red: #f04452; --sand: #e9e6df; --deep: #14342f; --deep-2: #173a35; --deep-3: #2c5a54;
+  --max-w: 480px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+html, body {
+  color: var(--ink); -webkit-font-smoothing: antialiased; letter-spacing: -.02em; background: #dfe3e8;
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+button { cursor: pointer; color: inherit; letter-spacing: inherit; background: 0 0; border: none; font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+input, select { font-family: inherit; letter-spacing: inherit; }
+
+/* ---- app shell ------------------------------------------------------------------------------- */
+.phone { max-width: var(--max-w); background: var(--bg); min-height: 100dvh; margin: 0 auto; position: relative; }
+.statusbar { justify-content: space-between; align-items: center; height: 44px; padding: 0 22px 0 26px; font-size: 15px; font-weight: 600; display: flex; }
+.statusbar .right { align-items: center; gap: 6px; font-size: 14px; display: flex; }
+.statusbar .batt { color: #fff; background: #111; border-radius: 5px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
+.scroll { min-height: calc(100dvh - 44px); padding-top: 18px; padding-bottom: 110px; }
+.home-head { justify-content: space-between; align-items: center; padding: 6px 20px 14px; display: flex; }
+.home-head .name { font-size: 23px; font-weight: 800; }
+.head-tools { align-items: center; gap: 16px; display: flex; }
+.bell { width: 26px; height: 26px; position: relative; font-size: 22px; }
+.bell .dot { background: #ff5252; border-radius: 50%; width: 7px; height: 7px; position: absolute; top: 0; right: 1px; }
+.card { background: var(--card); border-radius: 20px; margin: 0 16px 12px; padding: 20px; }
+.section-title { padding: 18px 22px 12px; font-size: 21px; font-weight: 800; }
+
+.tabbar {
+  width: 100%; max-width: var(--max-w); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  padding: 8px 14px calc(8px + env(safe-area-inset-bottom) + var(--safe-bottom, 0px)); z-index: 50;
+  background: #ffffffeb; border-top: 1px solid #eef0f2; justify-content: space-around; align-items: center;
+  display: flex; position: fixed; bottom: 0; left: 50%; transform: translate(-50%);
+}
+.tab { color: var(--ink-3); flex-direction: column; flex: 1; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; display: flex; }
+.tab .ic { font-size: 22px; line-height: 1.1; }
+.tab.active { color: var(--ink); }
+
+/* ---- account card ---------------------------------------------------------------------------- */
+.account-card {
+  color: var(--deep); background: linear-gradient(160deg, #bfe8e4 0%, #a6dcd7 100%); border-radius: 22px;
+  margin: 4px 16px 12px; padding: 30px 20px 28px;
+}
+.account-card .row1 { align-items: center; gap: 12px; display: flex; }
+.account-card .logo {
+  background: #fff; border: 2px solid #ffffff80; border-radius: 50%; width: 42px; height: 42px;
+  display: grid; place-items: center; font-size: 22px;
+}
+.account-card .acc-name { align-items: center; gap: 5px; font-size: 15px; font-weight: 700; display: flex; }
+.account-card .balance { letter-spacing: -.04em; margin-top: 3px; font-size: 22px; font-weight: 800; }
+.account-card .more { color: var(--deep-3); align-self: flex-start; margin-left: auto; font-size: 22px; line-height: 1; }
+.pill-row { gap: 8px; margin-top: 16px; display: flex; }
+.pill { color: var(--deep-2); text-align: center; background: #ffffff8c; border-radius: 12px; flex: 1; padding: 9px 0; font-size: 14px; font-weight: 700; }
+.pill.wide { flex: 0 0 92px; }
+.divider { background: #14342f21; height: 1px; margin: 20px 0 16px; }
+
+/* ---- transfer form --------------------------------------------------------------------------- */
+.card h2 { font-size: 18px; font-weight: 800; margin-bottom: 14px; }
+.card h3 { color: var(--ink-3); font-size: 13px; font-weight: 700; margin: 18px 0 8px; }
+label.field { display: block; margin-top: 14px; }
+label.field .lab { display: block; color: var(--ink-3); font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+input.text {
+  width: 100%; padding: 14px 16px; border: 1px solid transparent; border-radius: 14px; background: var(--bg);
+  color: var(--ink); font-size: 16px; font-weight: 600;
+}
+input.text:focus { outline: none; border-color: var(--blue); background: #fff; }
+input.text[readonly] { color: var(--ink-2); font-weight: 600; }
+input.secret { letter-spacing: 6px; font-size: 18px; }
+.amount { display: flex; align-items: baseline; gap: 8px; }
+.amount input { font-size: 24px; font-weight: 800; text-align: right; letter-spacing: -.03em; }
+.amount .won { font-size: 17px; font-weight: 800; color: var(--ink-2); }
+.quick { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.quick button { color: #333d4b; background: var(--bg); border-radius: 14px; padding: 9px 14px; font-size: 14px; font-weight: 700; }
+.quick button:hover { background: #e8ebee; }
+
+.steps { display: flex; gap: 8px; margin: 4px 0 10px; }
+.step { flex: 1; padding: 11px 13px; border-radius: 14px; background: var(--bg); }
+.step .n { color: var(--ink-3); font-size: 11px; font-weight: 700; }
+.step .t { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.step.on { background: var(--teal-card); color: var(--deep); }
+.step.on .n { color: var(--deep-3); }
+.step.done .t:after { content: " ✓"; color: var(--deep-3); }
+
+button.primary {
+  width: 100%; margin-top: 20px; padding: 16px; border-radius: 14px; background: var(--blue); color: #fff;
+  font-size: 17px; font-weight: 700;
+}
+button.primary:disabled { background: #dfe3e8; color: var(--ink-3); cursor: not-allowed; }
+button.ghost { background: var(--bg); border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 700; color: #333d4b; }
+.hintline { color: var(--ink-3); font-size: 13px; font-weight: 500; margin-top: 10px; min-height: 18px; }
+.status { color: var(--red); font-size: 13px; font-weight: 600; margin-top: 10px; min-height: 18px; white-space: pre-wrap; }
+
+/* ---- receipt --------------------------------------------------------------------------------- */
+.receipt { margin-top: 16px; border-radius: 16px; padding: 16px 18px; background: var(--teal-card); color: var(--deep); }
+.receipt.err { background: #ffe9ea; color: #7a2028; }
+.receipt .rt { font-weight: 800; font-size: 16px; margin-bottom: 10px; }
+.receipt .row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; font-weight: 600; }
+.receipt .row span:first-child { color: var(--deep-3); font-weight: 600; }
+.receipt.err .row span:first-child { color: #9a4048; }
+.receipt code { font-family: ui-monospace, Menlo, monospace; background: #ffffff8c; padding: 1px 6px; border-radius: 6px; font-weight: 700; }
+.receipt .note { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--deep-3); line-height: 1.5; }
+
+/* ---- demo settings (not part of the bank UI) --------------------------------------------------- */
+.settings > summary { font-size: 16px; font-weight: 800; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.settings > summary::-webkit-details-marker { display: none; }
+.settings > summary:before { content: "⚙︎"; }
+.settings > summary .sub { color: var(--ink-3); font-size: 12px; font-weight: 600; }
+.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.setgrid label { display: flex; flex-direction: column; gap: 5px; color: var(--ink-3); font-size: 12px; font-weight: 700; }
+select {
+  font-size: 14px; font-weight: 600; padding: 11px 12px; border-radius: 12px; border: 1px solid transparent;
+  background: var(--bg); color: var(--ink);
+}
+.setnote { margin-top: 12px; color: var(--ink-3); font-size: 12px; font-weight: 600; min-height: 16px; }
+.muted { color: var(--ink-3); font-size: 13px; font-weight: 500; line-height: 1.55; }
+.small { font-size: 12px; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .92em; background: var(--bg); padding: 1px 5px; border-radius: 6px; }
+.explain ol { padding-left: 18px; font-size: 14px; font-weight: 500; color: var(--ink-2); line-height: 1.6; }
+.explain li { margin-bottom: 6px; }
+.explain p { margin-top: 10px; }
+
+/* ---- demo chrome around the app --------------------------------------------------------------- */
 .demostrip {
   display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: center;
-  background: var(--brand); color: #eafffb; font-size: 12px; padding: 7px 14px;
+  background: var(--deep); color: #d7f5f0; font-size: 12px; font-weight: 600; padding: 8px 14px;
 }
 .demostrip b { color: #fff; }
-.demostrip a { color: #9fe9e0; text-decoration: none; border-bottom: 1px solid rgba(159, 233, 224, .5); }
-
-/* playground navigation (the demo's own bar, not part of the bank UI) */
+.demostrip a { color: #9fe9e0; border-bottom: 1px solid #9fe9e080; }
 .topnav {
-  display: flex; flex-wrap: wrap; gap: 2px; align-items: center; padding: 6px 16px;
-  background: var(--card); border-bottom: 1px solid var(--line); font-size: 13px;
+  display: flex; flex-wrap: wrap; gap: 2px; align-items: center; padding: 7px 16px; background: #fff;
+  border-bottom: 1px solid #eef0f2; font-size: 13px; font-weight: 600;
 }
-.topnav a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 8px; white-space: nowrap; }
+.topnav a { color: var(--ink-3); padding: 5px 9px; border-radius: 10px; white-space: nowrap; }
 .topnav a:hover { background: var(--bg); color: var(--ink); }
-.topnav a.active { color: var(--ink); font-weight: 700; background: var(--bg); }
-.topnav .brand { font-weight: 800; color: var(--ink); font-family: ui-monospace, Menlo, monospace; margin-right: 6px; }
-.topnav .group { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--line); }
-.topnav .glabel { font-size: 11px; font-weight: 800; color: var(--muted); padding: 0 4px; letter-spacing: .04em; }
+.topnav a.active { color: var(--ink); font-weight: 800; background: var(--bg); }
+.topnav .brand { font-weight: 800; color: var(--ink); margin-right: 6px; }
+.topnav .group { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding-left: 8px; border-left: 1px solid #eef0f2; }
+.topnav .glabel { font-size: 11px; font-weight: 800; color: var(--ink-3); padding: 0 4px; }
 .topnav .gh { margin-left: auto; }
 @media (max-width: 700px) { .topnav .gh { margin-left: 0; } }
 
-/* bank chrome */
-.bankbar {
-  display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--card);
-  border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
-}
-.wordmark { display: flex; align-items: baseline; gap: 8px; font-weight: 800; font-size: 19px; color: var(--ink); text-decoration: none; }
-.wordmark .cat { font-size: 22px; }
-.wordmark .en { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
-.banknav { display: flex; gap: 4px; margin-left: 10px; }
-.banknav a { padding: 7px 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-weight: 700; font-size: 14px; }
-.banknav a.on, .banknav a:hover { background: var(--bg); color: var(--ink); }
-.bankbar .spacer { margin-left: auto; }
-.userchip { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-.userchip .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-soft), var(--cream)); }
-
-.wrap { max-width: 1020px; margin: 0 auto; padding: 26px 20px 80px; }
-.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 20px; align-items: start; }
-@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
-
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 22px; box-shadow: var(--shadow); }
-.card + .card { margin-top: 16px; }
-.card h2 { font-size: 17px; margin: 0 0 14px; }
-.card h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); }
-
-/* account card */
-.account { background: linear-gradient(135deg, var(--brand), #1d4a43); color: #eafffb; border: 0; }
-.account .label { font-size: 13px; opacity: .8; display: flex; align-items: center; gap: 6px; }
-.account .balance { font-size: 30px; font-weight: 800; margin: 6px 0 2px; letter-spacing: -.03em; }
-.account .num { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }
-.account .chips { display: flex; gap: 8px; margin-top: 16px; }
-.account .chips button {
-  flex: 1; padding: 9px 0; border: 0; border-radius: 12px; background: rgba(255, 255, 255, .16);
-  color: #eafffb; font-weight: 700; font-size: 14px; cursor: pointer;
-}
-.account .chips button:hover { background: rgba(255, 255, 255, .26); }
-
-/* forms */
-label.field { display: block; margin: 14px 0 0; }
-label.field .lab { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
-input.text, .fake-input {
-  width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--field);
-  color: var(--ink); font-size: 16px; font-family: inherit;
-}
-input.text:focus { outline: 2px solid var(--action); border-color: transparent; }
-input.secret { letter-spacing: 8px; font-size: 20px; }
-input[readonly].text { color: var(--muted); }
-.amount { display: flex; align-items: baseline; gap: 8px; }
-.amount input { font-size: 24px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
-.amount .won { font-size: 18px; font-weight: 700; color: var(--muted); }
-.quick { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.quick button { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer; }
-.quick button:hover { color: var(--ink); border-color: var(--muted); }
-
-button.primary {
-  width: 100%; margin-top: 20px; padding: 16px; border: 0; border-radius: 14px; background: var(--action);
-  color: var(--action-ink); font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
-}
-button.primary:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
-button.ghost { padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font-size: 13px; cursor: pointer; font-family: inherit; }
-
-/* auth steps */
-.steps { display: flex; gap: 8px; margin: 4px 0 10px; }
-.step { flex: 1; padding: 10px 12px; border-radius: 12px; background: var(--field); border: 1px solid transparent; }
-.step .n { font-size: 11px; font-weight: 800; color: var(--muted); }
-.step .t { font-size: 13px; font-weight: 700; }
-.step.on { background: var(--brand-tint); border-color: var(--brand-soft); }
-.step.done .t::after { content: " ✓"; color: var(--brand-soft); }
-.hintline { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
-.status { margin-top: 10px; font-size: 13px; color: var(--danger); min-height: 18px; white-space: pre-wrap; }
-
-/* receipt / result */
-.receipt { margin-top: 16px; border-radius: 16px; padding: 16px; background: var(--brand-tint); border: 1px solid var(--brand-soft); }
-.receipt.err { background: rgba(240, 68, 82, .1); border-color: var(--danger); }
-.receipt .rt { font-weight: 800; margin-bottom: 8px; }
-.receipt .row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; }
-.receipt .row span:first-child { color: var(--muted); }
-.receipt code { font-family: ui-monospace, Menlo, monospace; background: rgba(0, 0, 0, .06); padding: 1px 6px; border-radius: 6px; }
-.receipt .note { margin-top: 10px; font-size: 12px; color: var(--muted); }
-
-/* demo settings */
-.settings { border: 1px dashed var(--line); border-radius: 16px; padding: 12px 16px 14px; background: var(--card); }
-.settings > summary { font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
-.settings > summary::-webkit-details-marker { display: none; }
-.settings > summary::before { content: "⚙︎"; }
-.settings > summary .sub { font-weight: 400; font-size: 12px; color: var(--muted); }
-.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
-.setgrid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
-select {
-  font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
-  background: var(--card); color: var(--ink);
-}
-.setnote { margin-top: 10px; font-size: 12px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; min-height: 16px; }
-.muted { color: var(--muted); font-size: 13px; }
-.small { font-size: 12px; }
-code { font-family: ui-monospace, Menlo, monospace; font-size: .92em; background: var(--field); padding: 1px 5px; border-radius: 5px; }
-.explain ol { padding-left: 20px; margin: 0 0 10px; font-size: 14px; }
-.explain li { margin-bottom: 6px; }
-
-/* explicit theme (the device frames pass ?theme=light|dark; otherwise the system setting applies) */
-html[data-theme="light"] {
-  --bg: #f2f4f6; --card: #ffffff; --ink: #191919; --muted: #6b7684; --line: #e8eaed;
-  --brand: #14342f; --brand-tint: #e3f5e9; --action: #3182f6; --action-ink: #ffffff;
-  --danger: #f04452; --field: #f2f4f6; --shadow: 0 2px 10px rgba(20, 52, 47, .06);
-}
-html[data-theme="dark"] {
-  --bg: #101314; --card: #191d1f; --ink: #f0f2f3; --muted: #97a1a6; --line: #2a3033;
-  --brand: #b3e3df; --brand-tint: #14342f; --action: #6aa8ff; --action-ink: #05203f;
-  --danger: #ff6b74; --field: #22282a; --shadow: 0 2px 10px rgba(0, 0, 0, .4);
-}
-html[data-theme="dark"] .account { background: linear-gradient(135deg, #14342f, #0e2320); color: #d7f5f0; }
-
-/* documentation pages (native.html) and the device-frame pages */
-.page { max-width: 1020px; margin: 0 auto; padding: 26px 20px 80px; }
-.hero h1 { font-size: 26px; margin: 0 0 8px; }
-.hero p { color: var(--muted); max-width: 66ch; margin: 0 0 22px; }
-.native .card { margin-bottom: 18px; }
-.native h2 { margin-top: 4px; }
-.native pre { background: var(--field); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; }
+/* ---- documentation and device-frame pages ------------------------------------------------------ */
+.page { max-width: 1020px; margin: 0 auto; padding: 24px 20px 80px; background: var(--bg); min-height: 100dvh; }
+.page .card { margin: 0 0 16px; }
+.hero h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+.hero p { color: var(--ink-2); font-size: 15px; font-weight: 500; max-width: 66ch; margin-bottom: 20px; line-height: 1.6; }
+.native h2 { font-size: 19px; font-weight: 800; margin-bottom: 12px; }
+.native pre { background: var(--bg); border-radius: 14px; padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; }
 .native pre code { background: none; padding: 0; }
-.native table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 12px; }
-.native th, .native td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.native th { color: var(--muted); white-space: nowrap; }
+.native table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 14px; }
+.native th, .native td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; font-weight: 500; }
+.native th { color: var(--ink-3); white-space: nowrap; font-weight: 700; }
+.native a { color: var(--blue); font-weight: 600; }
 .phone-hint { display: none; }
 @media (max-width: 860px) { .phone-hint { display: block; } }
-.controls .setgrid { margin-top: 10px; }
-
-/* phones visiting the web banking page: the bank bar keeps the wordmark only */
-@media (max-width: 640px) {
-  .bankbar { padding: 12px 16px; gap: 10px; }
-  .wordmark { font-size: 17px; white-space: nowrap; }
-  .wordmark .en, .banknav, .userchip .name { display: none; }
-  .wrap { padding: 18px 14px 90px; }
-  .card { padding: 18px; border-radius: 18px; }
-  .demostrip { font-size: 11px; padding: 6px 12px; }
-}

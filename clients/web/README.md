@@ -40,6 +40,7 @@ import { createSecureKeypad } from "@secure-keypad/web";
 | `style` | `"auto"` | `"ios"` on Apple devices, `"material"` elsewhere |
 | `theme` | `"auto"` | follows `prefers-color-scheme`; `themeOverrides` replaces colour tokens |
 | `haptics`, `popups` | `true` | vibration on Android touch; key popup bubbles on touch |
+| `desktopWidth` | 520 | width of the sheet on desktop pointers, in CSS px; set it to your content column's width so the keypad lines up |
 | `accessory` | `"auto"` | Done bar for number pads (`"always"` / `"never"`) |
 | `prefetch` | `true` | create the session on `attach` so the keypad opens instantly |
 | `hiddenInputName` | — | keeps a hidden input filled with the payload on classic form submits |

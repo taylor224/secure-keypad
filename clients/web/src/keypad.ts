@@ -16,6 +16,8 @@ export interface KeypadUIOptions {
   safeAreaBottom: number;
   accessory: boolean;
   doneLabel: string;
+  /** width of the sheet on desktop pointers, in CSS px (default 520) */
+  desktopWidth?: number;
   /** space-bar labels per language code; falls back to LANGUAGE_NAMES, then the code */
   languageNames: Record<string, string>;
   desktop: boolean;
@@ -105,6 +107,8 @@ export class KeypadUI {
     shadow.appendChild(style);
     this.sheet = document.createElement("div");
     this.sheet.className = "sheet" + (opts.desktop ? " desktop" : "");
+    // an app that lays its content out in a fixed-width column can ask the sheet to match it
+    if (opts.desktop && opts.desktopWidth) this.sheet.style.width = `min(${opts.desktopWidth}px, 100vw)`;
     this.sheet.setAttribute("role", "application");
     this.sheet.setAttribute("aria-label", "Secure keypad");
     this.accessoryBar = document.createElement("div");

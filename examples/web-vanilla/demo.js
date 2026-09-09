@@ -117,17 +117,26 @@
    * end of the document (like a native keyboard does) and scroll the field being typed into view.
    */
   function reserveSpaceFor(input) {
-    const apply = () => {
+    const scroller = document.querySelector(".scroll") || document.body;
+    const reserve = () => {
       const h = openSheetHeight();
-      document.body.style.paddingBottom = h ? h + 24 + "px" : "";
-      if (h && input) input.scrollIntoView({ block: "center", behavior: "smooth" });
+      scroller.style.paddingBottom = h ? h + 24 + "px" : "";
+      return h;
     };
-    apply();
-    setTimeout(apply, 280); // the sheet slides in over 240ms
+    // Scroll once, when the keypad opens, and only if the sheet actually covers the field. Instantly and
+    // never again while it is open: any later movement would shift the keys under the finger.
+    const h = reserve();
+    if (h && input) {
+      const rect = input.getBoundingClientRect();
+      const limit = window.innerHeight - h - 12;
+      if (rect.bottom > limit) window.scrollBy({ top: Math.ceil(rect.bottom - limit + 16), behavior: "auto" });
+    }
+    setTimeout(reserve, 280); // the sheet slides in over 240ms; only the reserved height is refreshed
   }
 
   function releaseSpace() {
-    if (!openSheetHeight()) document.body.style.paddingBottom = "";
+    const scroller = document.querySelector(".scroll") || document.body;
+    if (!openSheetHeight()) scroller.style.paddingBottom = "";
   }
 
   async function setup(o) {
@@ -154,6 +163,7 @@
         popups: o.popups ?? "auto",
         safeAreaBottom: o.safeAreaBottom || 0,
         doneLabel: o.doneLabel || "Done",
+        desktopWidth: o.desktopWidth ?? 480, // the app column is 480px wide (bank.css --max-w)
         mount: o.mount,
       };
       const pin = SecureKeypad.createSecureKeypad({ ...common, type: "number", maxLen: o.pinMaxLen ?? 6 });

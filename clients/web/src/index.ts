@@ -58,6 +58,11 @@ export interface SecureKeypadConfig {
   popups?: boolean | "auto";
   /** Extra bottom padding in CSS px under the keys (home indicator / gesture bar), added to the safe-area inset. */
   safeAreaBottom?: number;
+  /**
+   * Width of the sheet on desktop pointers, in CSS px (default 520). Set it to the width of your app's
+   * content column so the keypad lines up with it; phones always get the full width.
+   */
+  desktopWidth?: number;
   /** Accessory bar with a Done button: "auto" shows it for number pads only. */
   accessory?: "auto" | "always" | "never";
   doneLabel?: string;
@@ -169,6 +174,7 @@ export function createSecureKeypad(config: SecureKeypadConfig): SecureKeypad {
     accessory: config.accessory === "always" || (config.accessory !== "never" && config.type === "number"),
     doneLabel: config.doneLabel ?? "Done",
     languageNames: config.languageNames ?? {},
+    desktopWidth: config.desktopWidth,
     desktop,
     onTap: (tap) => {
       if (!session || session.consumed) return;
