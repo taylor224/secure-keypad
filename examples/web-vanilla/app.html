@@ -9,6 +9,12 @@
     html, body { height: 100%; }
     body { background: var(--bg); }
     .screen { min-height: 100%; padding: calc(var(--status-h, 0px) + 8px) 16px calc(96px + var(--safe-bottom, 0px)); }
+    /* inside a device frame the host draws the status bar over this iframe: keep scrolled content from
+       showing through it */
+    body::before {
+      content: ""; position: fixed; inset: 0 0 auto; height: var(--status-h, 0px);
+      background: var(--bg); z-index: 2147482000;
+    }
     .appbar { display: flex; align-items: center; gap: 10px; height: 44px; }
     .appbar .wordmark { font-size: 17px; gap: 6px; }
     .appbar .wordmark .en { display: none; }
