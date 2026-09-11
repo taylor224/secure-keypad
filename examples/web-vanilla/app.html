@@ -8,7 +8,7 @@
   <style>
     /* full-bleed inside a device frame; the host page draws the status bar over this iframe */
     .phone { max-width: none; }
-    .scroll { padding-top: calc(var(--status-h, 0px) + 12px); }
+    .scroll { padding-top: calc(var(--status-h, 0px) + 12px); padding-bottom: 110px; }
     body:before { content: ""; position: fixed; inset: 0 0 auto; height: var(--status-h, 0px); background: var(--bg); z-index: 2147482000; }
     .menu { display: none; gap: 6px; flex-wrap: wrap; justify-content: center; padding: 0 16px 12px; }
     .menu a { color: var(--blue); font-size: 12px; font-weight: 700; padding: 6px 12px; background: #fff; border-radius: 999px; }
@@ -18,10 +18,8 @@
       --blue: #6aa8ff; --teal-card: #1d4a44; --sand: #241f18; --deep: #d7f5f0; --deep-2: #bfe8e4; --deep-3: #8fc7c0;
     }
     html[data-theme="dark"] body { background: #0a0c0d; }
-    html[data-theme="dark"] .account-card { background: linear-gradient(160deg, #1b4b45 0%, #14342f 100%); color: #d7f5f0; }
-    html[data-theme="dark"] .pill { background: #ffffff1f; color: #cdeee9; }
     html[data-theme="dark"] .tabbar { background: #191d1feb; border-top-color: #262c2e; }
-    html[data-theme="dark"] .quick button, html[data-theme="dark"] .menu a { background: #22282a; color: var(--ink-2); }
+    html[data-theme="dark"] .menu a { background: #22282a; color: var(--ink-2); }
     html[data-theme="dark"] .receipt { background: #1d4a44; color: #d7f5f0; }
     html[data-theme="dark"] .receipt .row span:first-child { color: #8fc7c0; }
     html[data-theme="dark"] .receipt code { background: #ffffff1f; }
@@ -34,27 +32,8 @@
         <a href="./">웹뱅킹</a><a href="ios.html">iPhone 시뮬레이션</a><a href="android.html">Pixel 시뮬레이션</a><a href="native.html">SDK 예제</a>
       </nav>
 
-      <div class="home-head">
-        <div class="name">차돌이 집사</div>
-        <div class="head-tools">
-          <button class="ghost" type="button" id="gear" aria-label="데모 설정 열기">⚙︎ 데모 설정</button>
-        </div>
-      </div>
-
-      <div class="account-card">
-        <div class="row1">
-          <div class="logo">🐱</div>
-          <div>
-            <div class="acc-name">차돌이 통장 <span>⭐</span></div>
-            <div class="balance">17,372,842,148원</div>
-          </div>
-          <div class="more">⋯</div>
-        </div>
-        <div class="pill-row">
-          <div class="pill">카드</div>
-          <div class="pill">이체</div>
-          <div class="pill wide">저금통 🐟</div>
-        </div>
+      <div class="app-head">
+        <button class="ghost" type="button" id="gear" aria-label="데모 설정 열기">⚙︎ 데모 설정</button>
       </div>
 
       <form class="card" id="login" autocomplete="off">
@@ -65,24 +44,11 @@
         <label class="field"><span class="lab">보낼 금액</span>
           <span class="amount"><input class="text" id="amount" type="text" inputmode="numeric" value="50,000" aria-label="보낼 금액"><span class="won">원</span></span>
         </label>
-        <div class="quick">
-          <button type="button" data-add="10000">+1만</button>
-          <button type="button" data-add="50000">+5만</button>
-          <button type="button" data-add="100000">+10만</button>
-          <button type="button" data-set="0">직접입력</button>
-        </div>
-
-        <div class="divider"></div>
-        <h3>보안 인증</h3>
-        <div class="steps">
-          <div class="step on" id="step1"><div class="n">STEP 1</div><div class="t">출금 비밀번호</div></div>
-          <div class="step" id="step2"><div class="n">STEP 2</div><div class="t">인증서 비밀번호</div></div>
-        </div>
         <label class="field"><span class="lab">출금 비밀번호 (숫자 4자리)</span>
           <input class="text secret" id="pin" type="password" placeholder="••••" aria-label="출금 비밀번호">
         </label>
-        <label class="field"><span class="lab">차돌이인증서 비밀번호</span>
-          <input class="text secret" id="password" type="password" placeholder="••••••••" aria-label="차돌이인증서 비밀번호">
+        <label class="field"><span class="lab">인증서 비밀번호</span>
+          <input class="text secret" id="password" type="password" placeholder="••••••••" aria-label="인증서 비밀번호">
         </label>
         <div class="hintline" id="hint">입력창을 누르면 보안 키패드가 열립니다.</div>
         <button class="primary" type="submit">이체하기</button>

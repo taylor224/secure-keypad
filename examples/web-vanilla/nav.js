@@ -1,4 +1,5 @@
 // Shared navigation for the demo pages. Each page has <nav class="topnav" data-page="…"></nav>.
+// The per-device "실기기 화면" / "SDK 예제" links live in the copy of the simulation pages themselves.
 (function () {
   const nav = document.querySelector("nav.topnav");
   if (!nav) return;
@@ -7,15 +8,8 @@
   nav.innerHTML =
     `<a class="brand" href="./">secure-keypad 데모</a>` +
     link("./", "웹뱅킹", "web") +
-    `<span class="group"><span class="glabel">iOS</span>` +
     link("ios.html", "iPhone 시뮬레이션", "ios") +
-    link("app.html?device=ios", "실기기 화면", "app-ios") +
-    link("native.html#ios", "SDK 예제", "native-ios") +
-    `</span>` +
-    `<span class="group"><span class="glabel">Android</span>` +
     link("android.html", "Pixel 시뮬레이션", "android") +
-    link("app.html?device=android", "실기기 화면", "app-android") +
-    link("native.html#android", "SDK 예제", "native-android") +
-    `</span>` +
+    link("native.html", "SDK 예제", "native") +
     `<a class="gh" href="https://github.com/taylor224/secure-keypad" target="_blank" rel="noopener">GitHub ↗</a>`;
 })();

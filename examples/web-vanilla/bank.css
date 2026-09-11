@@ -21,17 +21,8 @@ input, select { font-family: inherit; letter-spacing: inherit; }
 
 /* ---- app shell ------------------------------------------------------------------------------- */
 .phone { max-width: var(--max-w); background: var(--bg); min-height: 100dvh; margin: 0 auto; position: relative; }
-.statusbar { justify-content: space-between; align-items: center; height: 44px; padding: 0 22px 0 26px; font-size: 15px; font-weight: 600; display: flex; }
-.statusbar .right { align-items: center; gap: 6px; font-size: 14px; display: flex; }
-.statusbar .batt { color: #fff; background: #111; border-radius: 5px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
-.scroll { min-height: calc(100dvh - 44px); padding-top: 18px; padding-bottom: 110px; }
-.home-head { justify-content: space-between; align-items: center; padding: 6px 20px 14px; display: flex; }
-.home-head .name { font-size: 23px; font-weight: 800; }
-.head-tools { align-items: center; gap: 16px; display: flex; }
-.bell { width: 26px; height: 26px; position: relative; font-size: 22px; }
-.bell .dot { background: #ff5252; border-radius: 50%; width: 7px; height: 7px; position: absolute; top: 0; right: 1px; }
+.scroll { min-height: 100dvh; padding: 18px 0 40px; }
 .card { background: var(--card); border-radius: 20px; margin: 0 16px 12px; padding: 20px; }
-.section-title { padding: 18px 22px 12px; font-size: 21px; font-weight: 800; }
 
 .tabbar {
   width: 100%; max-width: var(--max-w); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -43,27 +34,10 @@ input, select { font-family: inherit; letter-spacing: inherit; }
 .tab .ic { font-size: 22px; line-height: 1.1; }
 .tab.active { color: var(--ink); }
 
-/* ---- account card ---------------------------------------------------------------------------- */
-.account-card {
-  color: var(--deep); background: linear-gradient(160deg, #bfe8e4 0%, #a6dcd7 100%); border-radius: 22px;
-  margin: 4px 16px 12px; padding: 30px 20px 28px;
-}
-.account-card .row1 { align-items: center; gap: 12px; display: flex; }
-.account-card .logo {
-  background: #fff; border: 2px solid #ffffff80; border-radius: 50%; width: 42px; height: 42px;
-  display: grid; place-items: center; font-size: 22px;
-}
-.account-card .acc-name { align-items: center; gap: 5px; font-size: 15px; font-weight: 700; display: flex; }
-.account-card .balance { letter-spacing: -.04em; margin-top: 3px; font-size: 22px; font-weight: 800; }
-.account-card .more { color: var(--deep-3); align-self: flex-start; margin-left: auto; font-size: 22px; line-height: 1; }
-.pill-row { gap: 8px; margin-top: 16px; display: flex; }
-.pill { color: var(--deep-2); text-align: center; background: #ffffff8c; border-radius: 12px; flex: 1; padding: 9px 0; font-size: 14px; font-weight: 700; }
-.pill.wide { flex: 0 0 92px; }
-.divider { background: #14342f21; height: 1px; margin: 20px 0 16px; }
+.app-head { display: flex; justify-content: flex-end; padding: 0 20px 12px; }
 
 /* ---- transfer form --------------------------------------------------------------------------- */
 .card h2 { font-size: 18px; font-weight: 800; margin-bottom: 14px; }
-.card h3 { color: var(--ink-3); font-size: 13px; font-weight: 700; margin: 18px 0 8px; }
 label.field { display: block; margin-top: 14px; }
 label.field .lab { display: block; color: var(--ink-3); font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 input.text {
@@ -76,17 +50,6 @@ input.secret { letter-spacing: 6px; font-size: 18px; }
 .amount { display: flex; align-items: baseline; gap: 8px; }
 .amount input { font-size: 24px; font-weight: 800; text-align: right; letter-spacing: -.03em; }
 .amount .won { font-size: 17px; font-weight: 800; color: var(--ink-2); }
-.quick { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-.quick button { color: #333d4b; background: var(--bg); border-radius: 14px; padding: 9px 14px; font-size: 14px; font-weight: 700; }
-.quick button:hover { background: #e8ebee; }
-
-.steps { display: flex; gap: 8px; margin: 4px 0 10px; }
-.step { flex: 1; padding: 11px 13px; border-radius: 14px; background: var(--bg); }
-.step .n { color: var(--ink-3); font-size: 11px; font-weight: 700; }
-.step .t { font-size: 14px; font-weight: 700; margin-top: 2px; }
-.step.on { background: var(--teal-card); color: var(--deep); }
-.step.on .n { color: var(--deep-3); }
-.step.done .t:after { content: " ✓"; color: var(--deep-3); }
 
 button.primary {
   width: 100%; margin-top: 20px; padding: 16px; border-radius: 14px; background: var(--blue); color: #fff;
@@ -124,7 +87,6 @@ select {
 code { font-family: ui-monospace, Menlo, monospace; font-size: .92em; background: var(--bg); padding: 1px 5px; border-radius: 6px; }
 .explain ol { padding-left: 18px; font-size: 14px; font-weight: 500; color: var(--ink-2); line-height: 1.6; }
 .explain li { margin-bottom: 6px; }
-.explain p { margin-top: 10px; }
 
 /* ---- demo chrome around the app --------------------------------------------------------------- */
 .demostrip {
@@ -141,8 +103,6 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: .92em; background
 .topnav a:hover { background: var(--bg); color: var(--ink); }
 .topnav a.active { color: var(--ink); font-weight: 800; background: var(--bg); }
 .topnav .brand { font-weight: 800; color: var(--ink); margin-right: 6px; }
-.topnav .group { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding-left: 8px; border-left: 1px solid #eef0f2; }
-.topnav .glabel { font-size: 11px; font-weight: 800; color: var(--ink-3); padding: 0 4px; }
 .topnav .gh { margin-left: auto; }
 @media (max-width: 700px) { .topnav .gh { margin-left: 0; } }
 

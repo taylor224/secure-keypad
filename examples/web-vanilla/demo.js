@@ -254,7 +254,7 @@
     const secret = (label, len, value) =>
       rows.push([label, len === undefined ? "입력 없음" : `${len}자 · ` + (value !== undefined ? `<code>${escapeHtml(value)}</code>` : "값은 서버만 압니다")]);
     secret("출금 비밀번호", json.pinLength, json.pin);
-    secret("차돌이인증서 비밀번호", json.passwordLength, json.password);
+    secret("인증서 비밀번호", json.passwordLength, json.password);
     if (json.pinLength === undefined && json.passwordLength === undefined) {
       el.innerHTML = `<div class="receipt err"><div class="rt">이체 실패</div><div class="row"><span>사유</span><span>입력된 비밀번호가 없습니다</span></div></div>`;
       return;
